@@ -1,81 +1,176 @@
+// ─── Auto-inject RISK block nếu HTML chưa có (không cần sửa index.html) ─────
+function ensureRiskBlock() {
+  if (document.getElementById("risk-block")) return;
+  const tab = document.getElementById("tab-telemetry");
+  if (!tab) return;
+
+  const block = document.createElement("div");
+  block.className = "sat-row";
+  block.id = "risk-block";
+  block.style.borderColor = "rgba(245,158,11,0.35)";
+  block.style.background  = "rgba(245,158,11,0.04)";
+  block.innerHTML = `
+    <div class="sat-icon">🌊</div>
+    <div class="sat-info">
+      <div class="sat-name">RỦI RO THIÊN TAI</div>
+      <div class="sat-desc">Hạn hán (DRI) · Lũ lụt (FRI)</div>
+    </div>
+    <div class="sat-values">
+      <div class="sat-val-main" style="color:#f59e0b" id="risk-drought">—</div>
+      <div class="sat-val-sub" id="risk-flood">—</div>
+    </div>`;
+
+  const bars = document.createElement("div");
+  bars.id = "risk-bars";
+  bars.style.cssText = "padding:0 14px 8px;";
+
+  // Chèn ngay TRƯỚC chart đầu tiên (giữ đúng thứ tự sat-rows → charts)
+  const firstChart = tab.querySelector(".mini-chart-wrap");
+  if (firstChart) {
+    firstChart.parentNode.insertBefore(block, firstChart);
+    firstChart.parentNode.insertBefore(bars,  firstChart);
+  } else {
+    tab.appendChild(block);
+    tab.appendChild(bars);
+  }
+}
+
+function renderRiskBlock(sat) {
+  if (!sat.RISK) {
+    const block = document.getElementById("risk-block");
+    if (block) block.style.display = "none";
+    return;
+  }
+  ensureRiskBlock();
+  const block = document.getElementById("risk-block");
+  if (block) block.style.display = "";
+
+  const rd = Number.isFinite(sat.RISK.dri_avg) ? sat.RISK.dri_avg : 0;
+  const rf = Number.isFinite(sat.RISK.fri_avg) ? sat.RISK.fri_avg : 0;
+  const dm = Array.isArray(sat.RISK.drought_months) ? sat.RISK.drought_months : [];
+  const fm = Array.isArray(sat.RISK.flood_months)   ? sat.RISK.flood_months   : [];
+
+  const drEl = document.getElementById("risk-drought");
+  const flEl = document.getElementById("risk-flood");
+  if (drEl) drEl.textContent = `Hạn ${(rd * 100).toFixed(0)}% · ${dm.length} tháng`;
+  if (flEl) flEl.textContent = `Lũ  ${(rf * 100).toFixed(0)}% · ${fm.length} tháng`;
+
+  const bars = document.getElementById("risk-bars");
+  if (bars && typeof hpBarHTML === "function") {
+    bars.innerHTML =
+      hpBarHTML("🌵 Hạn hán (DRI)", rd * 100) +
+      hpBarHTML("🌊 Lũ lụt (FRI)",  rf * 100);
+  }
+}
+
 // ─── Update UI ────────────────────────────────────────────────────────────────
 function updateUI(data) {
-  const sat = data.satellite;
-  const sc  = data.scenarios;
+  const sat = data.satellite || {};
+  const sc  = data.scenarios || {};
 
-  document.getElementById("data-source-badge").textContent = "Source: " + data.source;
+  document.getElementById("data-source-badge").textContent =
+    "Source: " + (data.source || "unknown");
 
+  // FIX: 0 là giá trị hợp lệ → không được hiển thị "N/A"
   const setVal = (id, v, suffix = "") => {
     const el = document.getElementById(id);
-    if (el) el.textContent = (v !== null && v !== undefined && v !== 0) ? v + suffix : "N/A";
+    if (!el) return;
+    const n = Number(v);
+    el.textContent = Number.isFinite(n) ? n + suffix : "N/A";
   };
-  setVal("sv-temp",    sat.POWER.temp_avg, " °C");
-  document.getElementById("sv-temp-rng").textContent =
-    `${sat.POWER.temp_min}°C – ${sat.POWER.temp_max}°C · Rad ${sat.POWER.rad_avg} MJ/m²`;
 
-  setVal("sv-gwet",    sat.SMAP.gwetroot_avg);
-  document.getElementById("sv-gwet-sub").textContent =
-    `Root zone · ${sat.SMAP.drought_months} drought month(s)`;
+  setVal("sv-temp", sat.POWER?.temp_avg, " °C");
+  const rngEl = document.getElementById("sv-temp-rng");
+  if (rngEl && sat.POWER) {
+    rngEl.textContent = `${sat.POWER.temp_min}°C – ${sat.POWER.temp_max}°C · Rad ${sat.POWER.rad_avg} MJ/m²`;
+  }
 
-  setVal("sv-rain",    sat.GPM.rain_avg, " mm/mo");
-  document.getElementById("sv-rain-sub").textContent =
-    `Total ${sat.GPM.rain_total} mm/yr · ${sat.GPM.flood_months} flood risk month(s)`;
+  setVal("sv-gwet", sat.SMAP?.gwetroot_avg);
+  const gwetSub = document.getElementById("sv-gwet-sub");
+  if (gwetSub && sat.SMAP) {
+    gwetSub.textContent = `Root zone · ${sat.SMAP.drought_months} drought month(s)`;
+  }
 
-  setVal("sv-ts",      sat.ECOSTRESS.ts_max, " °C peak");
-  document.getElementById("sv-esi").textContent =
-    `ESI avg ${sat.ECOSTRESS.esi_avg} · ${sat.ECOSTRESS.heat_months} heat stress month(s)`;
+  setVal("sv-rain", sat.GPM?.rain_avg, " mm/mo");
+  const rainSub = document.getElementById("sv-rain-sub");
+  if (rainSub && sat.GPM) {
+    rainSub.textContent = `Total ${sat.GPM.rain_total} mm/yr · ${sat.GPM.flood_months} flood risk month(s)`;
+  }
 
-  setVal("sv-ndvi",    sat.MODIS.ndvi_avg);
-  document.getElementById("sv-ndvi-sub").textContent =
-    `NDVI ${sat.MODIS.ndvi_min} – ${sat.MODIS.ndvi_max}`;
+  setVal("sv-ts", sat.ECOSTRESS?.ts_max, " °C peak");
+  const esiEl = document.getElementById("sv-esi");
+  if (esiEl && sat.ECOSTRESS) {
+    esiEl.textContent = `ESI avg ${sat.ECOSTRESS.esi_avg} · ${sat.ECOSTRESS.heat_months} heat stress month(s)`;
+  }
+
+  setVal("sv-ndvi", sat.MODIS?.ndvi_avg);
+  const ndviSub = document.getElementById("sv-ndvi-sub");
+  if (ndviSub && sat.MODIS) {
+    ndviSub.textContent = `NDVI ${sat.MODIS.ndvi_min} – ${sat.MODIS.ndvi_max}`;
+  }
+
+  // NEW: block rủi ro thiên tai (DRI/FRI)
+  renderRiskBlock(sat);
 
   // Alerts
   const alertsList = document.getElementById("alerts-list");
-  alertsList.innerHTML = "";
-  data.alerts.forEach(a => {
-    const cls = a.level === "danger" ? "alert-danger"
-              : a.level === "warning" ? "alert-warning" : "alert-ok";
-    alertsList.innerHTML += `<div class="alert-box ${cls}">${a.msg}</div>`;
-  });
-  document.getElementById("alerts-wrap").style.display = "block";
+  if (alertsList) {
+    alertsList.innerHTML = "";
+    (data.alerts || []).forEach(a => {
+      const cls = a.level === "danger" ? "alert-danger"
+                : a.level === "warning" ? "alert-warning" : "alert-ok";
+      alertsList.innerHTML += `<div class="alert-box ${cls}">${a.msg || ""}</div>`;
+    });
+  }
+  const alertsWrap = document.getElementById("alerts-wrap");
+  if (alertsWrap) alertsWrap.style.display = "block";
 
   // Charts
-  buildCharts(data.monthly);
+  if (data.monthly && typeof buildCharts === "function") buildCharts(data.monthly);
 
   // Match score
-  document.getElementById("match-score").textContent = data.match_pct + "%";
-  const matchDesc = data.match_pct >= 85 ? "🏆 Excellent — Very close to quantum optimal!"
-    : data.match_pct >= 65 ? "👍 Good — Room for further optimization"
-    : data.match_pct >= 45 ? "⚠️ Fair — Consider the quantum recommendation"
+  const mp = Number.isFinite(data.match_pct) ? data.match_pct : 0;
+  document.getElementById("match-score").textContent = mp + "%";
+  const matchDesc = mp >= 85 ? "🏆 Excellent — Very close to quantum optimal!"
+    : mp >= 65 ? "👍 Good — Room for further optimization"
+    : mp >= 45 ? "⚠️ Fair — Consider the quantum recommendation"
     : "🔴 Low — Quantum suggests a significantly better rotation";
   document.getElementById("match-desc").textContent = matchDesc;
 
   // User block
-  document.getElementById("user-tags").innerHTML = cropTagsHTML(sc.user.crop_info);
-  document.getElementById("user-rank").textContent = "RANK " + sc.user.rank;
-  document.getElementById("user-rank").className = "rank-chip rank-" + sc.user.rank;
-  document.getElementById("user-hp-soil").innerHTML   = hpBarHTML("🌱 Soil & Nitrogen HP",  sc.user.soil_hp);
-  document.getElementById("user-hp-water").innerHTML  = hpBarHTML("💧 Water Budget HP",     sc.user.water_hp);
-  document.getElementById("user-hp-profit").innerHTML = hpBarHTML("💰 Economic HP",         sc.user.profit_hp);
+  if (sc.user) {
+    document.getElementById("user-tags").innerHTML = cropTagsHTML(sc.user.crop_info);
+    document.getElementById("user-rank").textContent = "RANK " + sc.user.rank;
+    document.getElementById("user-rank").className = "rank-chip rank-" + sc.user.rank;
+    document.getElementById("user-hp-soil").innerHTML   = hpBarHTML("🌱 Soil & Nitrogen HP",  sc.user.soil_hp);
+    document.getElementById("user-hp-water").innerHTML  = hpBarHTML("💧 Water Budget HP",     sc.user.water_hp);
+    document.getElementById("user-hp-profit").innerHTML = hpBarHTML("💰 Economic HP",         sc.user.profit_hp);
+  }
 
   // Quantum block
-  document.getElementById("q-tags").innerHTML = cropTagsHTML(sc.quantum.crop_info);
-  document.getElementById("q-rank").textContent = "RANK " + sc.quantum.rank;
-  document.getElementById("q-rank").className = "rank-chip rank-" + sc.quantum.rank;
-  document.getElementById("q-method").textContent = "⚛️ " + sc.quantum.method;
-  document.getElementById("q-hp-soil").innerHTML   = hpBarHTML("🌱 Soil & Nitrogen HP",  sc.quantum.soil_hp);
-  document.getElementById("q-hp-water").innerHTML  = hpBarHTML("💧 Water Budget HP",     sc.quantum.water_hp);
-  document.getElementById("q-hp-profit").innerHTML = hpBarHTML("💰 Economic HP",         sc.quantum.profit_hp);
+  if (sc.quantum) {
+    document.getElementById("q-tags").innerHTML = cropTagsHTML(sc.quantum.crop_info);
+    document.getElementById("q-rank").textContent = "RANK " + sc.quantum.rank;
+    document.getElementById("q-rank").className = "rank-chip rank-" + sc.quantum.rank;
+    document.getElementById("q-method").textContent = "⚛️ " + (sc.quantum.method || "—");
+    document.getElementById("q-hp-soil").innerHTML   = hpBarHTML("🌱 Soil & Nitrogen HP",  sc.quantum.soil_hp);
+    document.getElementById("q-hp-water").innerHTML  = hpBarHTML("💧 Water Budget HP",     sc.quantum.water_hp);
+    document.getElementById("q-hp-profit").innerHTML = hpBarHTML("💰 Economic HP",         sc.quantum.profit_hp);
+  }
 
   // Radar
-  buildRadar(sc);
+  if (typeof buildRadar === "function") buildRadar(sc);
 
-  // Auto-switch to arena tab
-  setTimeout(() => {
-    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
-    document.getElementById("tab-arena").classList.add("active");
-    document.querySelectorAll(".tab-btn")[1].classList.add("active");
-  }, 400);
+  // Auto-switch sang Arena CHỈ lần đầu (tránh cướp tab khi user đang scroll Telemetry)
+  if (!window._fsAutoSwitched) {
+    window._fsAutoSwitched = true;
+    setTimeout(() => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+      const arenaTab = document.getElementById("tab-arena");
+      const arenaBtn = document.querySelectorAll(".tab-btn")[1];
+      if (arenaTab) arenaTab.classList.add("active");
+      if (arenaBtn) arenaBtn.classList.add("active");
+    }, 400);
+  }
 }
-
