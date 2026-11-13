@@ -1,0 +1,16 @@
+{
+  "name": "farmshift",
+  "version": "1.0.0",
+  "description": "FarmShift — NASA Space Apps Challenge 2026: Field Shift, Adapting Farms with NASA Data",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "DEBUG=1 node --watch server.js",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}
