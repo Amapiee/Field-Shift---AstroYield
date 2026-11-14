@@ -78,56 +78,6 @@ async function smartGeocodeQuery(q) {
   return null;
 }
 
-// Hàm phụ trợ để kiểm tra xem tọa độ có nằm trên biển/đại dương không
-// Sử dụng ArcGIS Reverse Geocoding (nhanh, chính xác) và fallback sang Nominatim
-async function isWaterCoordinate(lat, lon) {
-  // 1. Thử qua ArcGIS World Geocoding Reverse API
-  try {
-    const arcUrl = `https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/reverseGeocode?location=${lon},${lat}&f=json`;
-    const r = await fetch(arcUrl);
-    if (r.ok) {
-      const data = await r.json();
-      const addr = data.address || {};
-      const type = (addr.Type || "").toLowerCase();
-      const matchAddr = (addr.Match_addr || "").toLowerCase();
-      const country = (addr.CntryName || "").trim();
-
-      const waterKeywords = ["ocean", "sea", "gulf", "bay", "water", "marine", "channel", "strait", "zone", "sound"];
-      const isWaterMatch = waterKeywords.some(w => matchAddr.includes(w) || type.includes(w));
-
-      if (!country && (isWaterMatch || !addr.Match_addr)) {
-        return true;
-      }
-      if (waterKeywords.includes(type) && !country) {
-        return true;
-      }
-      if (country) {
-        return false;
-      }
-    }
-  } catch (err) {
-    console.warn("ArcGIS reverse geocode failed, trying Nominatim fallback:", err);
-  }
-
-  // 2. Fallback sang OpenStreetMap Nominatim
-  try {
-    const nomUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&zoom=10`;
-    const response = await fetch(nomUrl, { headers: { "User-Agent": "FarmShift-App" } });
-    const data = await response.json();
-    
-    // Nếu API không tìm thấy quốc gia/đất liền, hoặc phân loại là biển (sea/ocean)
-    if (data.error === "Unable to geocode" || 
-       (data.category === "natural" && ["water", "sea", "bay", "ocean"].includes(data.type)) ||
-       (!data.address?.country && !data.address?.country_code)) {
-      return true; // Đây là nước/biển
-    }
-    return false; // Đây là đất liền
-  } catch (error) {
-    console.warn("Lỗi khi kiểm tra tọa độ biển:", error);
-    return false; // Fallback: Cho phép đi tiếp nếu API lỗi
-  }
-}
-
 async function smartGeocode() {
   const raw = document.getElementById("search-input").value.trim();
   if (!raw) return;
@@ -157,21 +107,27 @@ async function smartGeocode() {
   btn.textContent = "Tìm";
 
   if (found) {
-    const lat = found.lat;
-    const lon = found.lon;
+    const lat = Number(found.lat.toFixed(4));
+    const lon = Number(found.lon.toFixed(4));
     
-    // 3. OPTIONAL CHECK: Kiểm tra xem vị trí này có phải là biển không
+    // 3. Use the same offline land/water/glacier geometry as manual map selection.
     btn.disabled = true;
-    btn.textContent = "🌊 Đang kiểm tra...";
-    const isWater = await isWaterCoordinate(lat, lon);
-    btn.disabled = false;
-    btn.textContent = "Tìm";
-
-    if (isWater) {
-       errorEl.textContent = `❌ Vị trí "${found.name}" nằm ngoài đại dương hoặc vùng nước lớn. Vui lòng chọn một vùng đất liền để canh tác.`;
-       errorEl.style.display = "block";
-       if (typeof showWaterAlert === "function") showWaterAlert();
-       return; // Dừng lại, không phân tích tiếp
+    btn.textContent = "Đang kiểm tra...";
+    placeMarker(lat, lon, true, 13);
+    resetDashboardUI();closeWaterAlert();
+    try {
+      const geo = await getLocationClassification(lat, lon);
+      if (farmLat !== lat || farmLon !== lon) return;
+      if (showLocationWarning(geo)) {
+        errorEl.textContent = geo.message;
+        errorEl.style.display = 'block';
+        return;
+      }
+    } catch (error) {
+      setAnalysisMessage(error.message);
+      return;
+    } finally {
+      btn.disabled = false; btn.textContent = 'Tìm';
     }
 
     // 4. Nếu là đất liền, tiếp tục hiển thị và phân tích
@@ -180,7 +136,7 @@ async function smartGeocode() {
     resultEl.innerHTML = `📍 <strong>${found.name}</strong><br><span style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--cyan)">(${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E)</span>`;
     resultEl.style.display = "block";
 
-    setTimeout(() => runAnalysis(), 600);
+    setTimeout(() => { if (farmLat === lat && farmLon === lon) runAnalysis(); }, 600);
   } else {
     errorEl.textContent = `❌ Không tìm thấy: "${raw}". Vui lòng thử từ khóa khác (ví dụ: Phú Xuyên, Hà Nội, Cần Thơ, California).`;
     errorEl.style.display = "block";

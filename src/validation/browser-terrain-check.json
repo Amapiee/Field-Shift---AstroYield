@@ -1,0 +1,32 @@
+{
+  "checked_at": "2026-11-14T19:05:58.028Z",
+  "browser": "Headless Chrome / real Leaflet map",
+  "exceptions": [],
+  "results": [
+    {
+      "name": "greenland-sea",
+      "message": "🌊 Điểm chọn nằm trên biển / đại dương theo bản đồ. Không thể trồng cây trên mặt biển; vui lòng chọn đất liền. Nếu chọn sát bờ hoặc đảo nhỏ, hãy phóng to và kiểm tra lại vì đường bờ bản đồ được khái quát hóa."
+    },
+    {
+      "name": "mont-blanc",
+      "message": "🧊 Điểm chọn nằm trong vùng băng / sông băng được lập bản đồ Natural Earth. Không chạy mô hình cây trồng ngoài trời cho vùng này. Bản đồ có thể gồm vùng băng đã rút; chưa xác nhận tuyết hoặc băng hiện thời. Hãy chọn đất canh tác và kiểm tra ảnh thực địa nếu ở sát rìa băng."
+    },
+    {
+      "name": "matterhorn",
+      "message": "🧊 Điểm chọn nằm trong vùng băng / sông băng được lập bản đồ Natural Earth. Không chạy mô hình cây trồng ngoài trời cho vùng này. Bản đồ có thể gồm vùng băng đã rút; chưa xác nhận tuyết hoặc băng hiện thời. Hãy chọn đất canh tác và kiểm tra ảnh thực địa nếu ở sát rìa băng."
+    },
+    {
+      "name": "jungfrau",
+      "message": "🧊 Điểm chọn nằm trong vùng băng / sông băng được lập bản đồ Natural Earth. Không chạy mô hình cây trồng ngoài trời cho vùng này. Bản đồ có thể gồm vùng băng đã rút; chưa xác nhận tuyết hoặc băng hiện thời. Hãy chọn đất canh tác và kiểm tra ảnh thực địa nếu ở sát rìa băng."
+    },
+    {
+      "name": "Thailand real NASA analysis",
+      "score": "88.2 / 100",
+      "error": "",
+      "source": "Source: NASA POWER climatology · valid_climatology · KỊCH BẢN LẬP KẾ HOẠCH, KHÔNG PHẢI DỰ BÁO / CHỈ DẪN TẠI RUỘNG · SPI available",
+      "loading": false,
+      "header": 56,
+      "detailsOpen": false
+    }
+  ]
+}

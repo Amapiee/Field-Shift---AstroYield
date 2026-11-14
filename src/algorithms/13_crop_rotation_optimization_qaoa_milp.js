@@ -1,409 +1,215 @@
-/**
- * ==============================================================================
- * THUẬT TOÁN 13: CROP ROTATION OPTIMIZATION — CLASSICAL EXACT & QUANTUM QAOA (V3)
- * ==============================================================================
- * 
- * 1. BỐI CẢNH KHOA HỌC & HIỆU CHỈNH:
- *    - Khắc phục lỗi chọn cây tử địa (Hard Constraint Pruning): Thay vì dùng hình phạt hữu hạn
- *      (+80.0) có thể bị vượt qua nếu các phương án khác điểm quá thấp, thuật toán Cổ điển
- *      loại bỏ hoàn toàn (Prune) các phương án vi phạm sinh học (T < T_kill_min hoặc ẩm đất sa mạc).
- *      Nghiệm tối ưu luôn bảo đảm 100% thuộc tập nghiệm khả thi Omega_feasible.
- *    - QUBO Hamiltonian hoàn chỉnh: Tích hợp hình phạt vi phạm ràng buộc One-Hot (mỗi mùa đúng 1 cây)
- *      H_penalty = lambda * sum_s (sum_c x_{s,c} - 1)^2 với lambda = 1.8.
- *    - Đo lường thực nghiệm trung thực:
- *      + `feasibility_rate_pct`: Tỷ lệ phần trăm các bitstring đo được tuân thủ đúng ràng buộc One-Hot
- *        trên toàn bộ 1024 lần đo (shots).
- *      + `optimality_gap_pct`: Khoảng cách tương đối giữa hàm mục tiêu của nghiệm QAOA tìm được
- *        và nghiệm tối ưu toàn cục Cổ điển: Gap = ((F_classical - F_qaoa) / F_classical) * 100%.
- *      + Tuyệt đối không gán cứng 3.8% hay 98.5%!
- */
-
-const { Statevector } = require("../quantum/statevector");
-const { SCIENTIFIC_CROP_PROFILES, computeCropSeasonSuitability } = require("./11_crop_suitability_fuzzy_ecocrop");
-
-const CROP_KEYS = ["Rice", "Soybean", "Peanut", "Maize", "Veggies", "Fallow"];
-const SEASON_MONTHS = [
-  [0, 1, 2, 3],    // Vụ 1: Xuân (Tháng 1-4)
-  [4, 5, 6, 7],    // Vụ 2: Hè (Tháng 5-8)
-  [8, 9, 10, 11]   // Vụ 3: Đông (Tháng 9-12)
-];
-
-function round(v, dec = 2) {
-  const p = Math.pow(10, dec);
-  return Math.round(v * p) / p;
+// Unified planning_rotation_v5 objective for UI, Classical Exact and simulated QAOA.
+// This objective is a heuristic comparison, not a calibrated yield or profit prediction.
+const { performance } = require('node:perf_hooks');
+const { SCIENTIFIC_CROP_PROFILES: PROFILES, computeCropSeasonSuitability } = require('./11_crop_suitability_fuzzy_ecocrop');
+const {seasonColdExposure}=require('../services/coldRisk');
+const {OBJECTIVE_VERSION,SCORING_PARAMETERS:P,SEASON_IDX}=require('../config/crops');
+const CROP_KEYS = ['Rice','Soybean','Peanut','Maize','Veggies','Fallow'];
+const SEASON_MONTHS = SEASON_IDX;
+const SCALE = 100;
+const round = (v,n=2) => Math.round(v*10**n)/10**n;
+function getRotationTransitionBenefit(a,b) {
+  if (['Soybean','Peanut'].includes(a) && ['Rice','Maize','Veggies'].includes(b)) return P.transition_legume;
+  if (a==='Rice' && b==='Rice') return P.transition_rice_repeat;
+  if (a==='Fallow') return b==='Fallow' ? P.transition_fallow_repeat : P.transition_after_fallow;
+  return P.transition_other;
 }
-
-function getRotationTransitionBenefit(c1, c2) {
-  if ((c1 === "Soybean" || c1 === "Peanut") && (c2 === "Rice" || c2 === "Maize" || c2 === "Veggies")) {
-    return 15.0; // Thưởng đạm sinh học
-  }
-  if (c1 === "Rice" && c2 === "Rice") {
-    return -20.0; // Phạt sâu bệnh độc canh
-  }
-  if (c1 === "Fallow" && c2 !== "Fallow") {
-    return 8.0; // Đất nghỉ hồi phục
-  }
-  if (c1 === "Fallow" && c2 === "Fallow") {
-    return -8.0;
-  }
-  return 2.0;
+function normalizeWeights(weights) {
+  const w = ['soil','water','profit'].map(k=>weights[k]);
+  if (w.some(v=>!Number.isFinite(v) || v<0)) throw new TypeError('Weights must be finite and nonnegative');
+  const total=w.reduce((a,b)=>a+b,0);
+  return Object.fromEntries(['soil','water','profit'].map((k,i)=>[k,total ? w[i]/total : 1/3]));
 }
-
-function buildSeasonEnvironments(monthlyData) {
-  const { T2M, PRECTOTCORR, GWETROOT, TS } = monthlyData;
-
-  return SEASON_MONTHS.map(months => {
-    const tempAvg = months.reduce((s, m) => s + T2M[m], 0) / months.length;
-    const rainSeasonAccum = months.reduce((s, m) => s + (PRECTOTCORR ? PRECTOTCORR[m] : 0), 0);
-    const soilMoistureAvg = months.reduce((s, m) => s + GWETROOT[m], 0) / months.length;
-    const maxTs = Math.max(...months.map(m => (TS ? TS[m] : T2M[m] + 3.0)));
-
-    return { tempAvg, rainSeasonAccum, soilMoistureAvg, maxTs };
-  });
+function buildSeasonEnvironments(data) {
+  for (const key of ['T2M','PRECTOTCORR','GWETROOT','TS']) {
+    if (!Array.isArray(data[key]) || data[key].length!==12 || !data[key].every(Number.isFinite)) throw new TypeError(`Missing climate variable ${key}`);
+  }
+  return SEASON_MONTHS.map(months=>({
+    tempAvg:months.reduce((s,m)=>s+data.T2M[m],0)/4,
+    rainSeasonAccum:months.reduce((s,m)=>s+data.PRECTOTCORR[m],0),
+    soilMoistureAvg:months.reduce((s,m)=>s+data.GWETROOT[m],0)/4,
+    maxTs:Math.max(...months.map(m=>data.TS[m])),
+    coldExposure:seasonColdExposure(data,months)
+  }));
 }
-
-/**
- * Tính điểm hàm mục tiêu nông học cho 1 tổ hợp 3 cây trồng
- */
-function evaluateRotationObjective(trio, suitabilityMatrix, weights) {
-  const [c1, c2, c3] = trio;
-  const suits = [suitabilityMatrix[0][c1], suitabilityMatrix[1][c2], suitabilityMatrix[2][c3]];
-
-  // Kiểm tra tính khả thi sinh học (Hard Constraint)
-  const isFeasible = !suits.some((s, idx) => s.is_lethal && trio[idx] !== "Fallow");
-
-  const avgSuit = (suits[0].suitability_score + suits[1].suitability_score + suits[2].suitability_score) / 3.0;
-  const totalTrans = getRotationTransitionBenefit(c1, c2) + getRotationTransitionBenefit(c2, c3);
-
-  // Lợi nhuận nhân với hệ số suy giảm sinh thái
-  const prof1 = SCIENTIFIC_CROP_PROFILES[c1].base_profit * suits[0].yield_factor;
-  const prof2 = SCIENTIFIC_CROP_PROFILES[c2].base_profit * suits[1].yield_factor;
-  const prof3 = SCIENTIFIC_CROP_PROFILES[c3].base_profit * suits[2].yield_factor;
-  const avgProfit = (prof1 + prof2 + prof3) / 3.0;
-
-  // Điểm Đất và Nước
-  const soilDelta = (SCIENTIFIC_CROP_PROFILES[c1].nitrogen_balance +
-                     SCIENTIFIC_CROP_PROFILES[c2].nitrogen_balance +
-                     SCIENTIFIC_CROP_PROFILES[c3].nitrogen_balance);
-  const soilScore = Math.max(0, Math.min(100, 50 + soilDelta * 0.6));
-
-  const waterInt = (SCIENTIFIC_CROP_PROFILES[c1].water_intensity +
-                    SCIENTIFIC_CROP_PROFILES[c2].water_intensity +
-                    SCIENTIFIC_CROP_PROFILES[c3].water_intensity);
-  const waterScore = Math.max(0, Math.min(100, 60 + waterInt * 0.8));
-
-  const totalW = weights.profit + weights.soil + weights.water;
-  const objectiveScore = isFeasible
-    ? (weights.profit * avgProfit + weights.soil * soilScore + weights.water * waterScore) / totalW + 0.3 * avgSuit + totalTrans
-    : -Infinity;
-
-  return {
-    rotation: trio,
-    objective_score: isFeasible ? round(objectiveScore, 2) : -Infinity,
-    is_feasible: isFeasible,
-    soil_hp: round(soilScore, 1),
-    water_hp: round(waterScore, 1),
-    profit_hp: round(avgProfit, 1),
-    suitability_avg: round(avgSuit, 1)
-  };
+function localComponents(crop,suit) {
+  const p=PROFILES[crop],clamp=v=>Math.min(100,Math.max(0,v));
+  // Per-crop saturation makes the objective additive and exactly representable without auxiliary bits.
+  return {soil:clamp(P.soil_base+P.soil_coefficient*p.nitrogen_balance),water:clamp(P.water_base+P.water_coefficient*p.water_intensity),
+    profit:p.base_profit*suit.yield_factor,suitability:suit.suitability_score};
 }
-
-/**
- * Thuật toán Cổ điển chính xác (Exact Classical Exhaustive Search)
- * Áp dụng Ràng buộc cứng (Hard Constraint Pruning): Loại bỏ tuyệt đối phương án tử địa
- */
-function solveClassicalExactOptimizer(seasonEnvs, weights = { soil: 0.33, water: 0.33, profit: 0.34 }) {
-  let bestScore = -Infinity;
-  let bestRotation = ["Fallow", "Fallow", "Fallow"];
-  const allEvaluations = [];
-  const feasibleEvaluations = [];
-
-  // Tính ma trận độ thích ứng nông học 3x6
-  const suitabilityMatrix = seasonEnvs.map(env => {
-    const row = {};
-    CROP_KEYS.forEach(ckey => {
-      row[ckey] = computeCropSeasonSuitability(ckey, env);
-    });
-    return row;
-  });
-
-  // Duyệt toàn bộ 216 tổ hợp (6^3)
-  for (const c1 of CROP_KEYS) {
-    for (const c2 of CROP_KEYS) {
-      for (const c3 of CROP_KEYS) {
-        const evalRes = evaluateRotationObjective([c1, c2, c3], suitabilityMatrix, weights);
-        allEvaluations.push(evalRes);
-
-        if (evalRes.is_feasible) {
-          feasibleEvaluations.push(evalRes);
-          if (evalRes.objective_score > bestScore) {
-            bestScore = evalRes.objective_score;
-            bestRotation = evalRes.rotation;
-          }
-        }
-      }
+function localBenefit(crop,suit,weights) {
+  const w=normalizeWeights(weights),c=localComponents(crop,suit);
+  return (w.soil*c.soil+w.water*c.water+w.profit*c.profit+P.suitability_weight*c.suitability)/3;
+}
+function evaluateRotationObjective(trio,matrix,weights) {
+  if(!Array.isArray(trio) || trio.length!==3 || trio.some(c=>!CROP_KEYS.includes(c))) throw new TypeError('Exactly three known crops are required');
+  const suits=trio.map((c,s)=>matrix[s][c]);
+  const feasible=suits.every((s,i)=>(!s.is_lethal && !s.model_excluded) || trio[i]==='Fallow');
+  const components=trio.map((c,s)=>localComponents(c,suits[s]));
+  const score=trio.reduce((sum,c,s)=>sum+localBenefit(c,suits[s],weights),0)
+    +getRotationTransitionBenefit(trio[0],trio[1])+getRotationTransitionBenefit(trio[1],trio[2]);
+  const overall=feasible ? (score+P.display_offset)*P.display_scale : 0;
+  const noPlanting=trio.every(c=>c==='Fallow');
+  return {rotation:trio,objective_version:OBJECTIVE_VERSION,objective_score:feasible ? overall : -Infinity,
+    raw_objective_score:feasible?score:null,
+    objective_formula:'0.5 * (weighted_component_score + 0.3 * suitability_avg + transition_benefit + 40)',
+    transition_benefit:getRotationTransitionBenefit(trio[0],trio[1])+getRotationTransitionBenefit(trio[1],trio[2]),
+    overall,is_feasible:feasible,no_planting:noPlanting,
+    rank:!feasible || noPlanting ? 'C' : overall>=72?'S':overall>=55?'A':overall>=35?'B':'C',
+    soil_hp:feasible?components.reduce((a,c)=>a+c.soil,0)/3:0,
+    water_hp:feasible?components.reduce((a,c)=>a+c.water,0)/3:0,
+    profit_hp:feasible?components.reduce((a,c)=>a+c.profit,0)/3:0,suitability_avg:components.reduce((a,c)=>a+c.suitability,0)/3};
+}
+function suitabilityMatrix(envs) {
+  return envs.map(env=>Object.fromEntries(CROP_KEYS.map(c=>[c,computeCropSeasonSuitability(c,env)])));
+}
+const DEFAULT_WEIGHTS={soil:0.33,water:0.33,profit:0.34};
+function solveClassicalExactOptimizer(envs,weights=DEFAULT_WEIGHTS) {
+  const started=performance.now(),matrix=suitabilityMatrix(envs),all=[];
+  for(const a of CROP_KEYS) for(const b of CROP_KEYS) for(const c of CROP_KEYS) {
+    const r=evaluateRotationObjective([a,b,c],matrix,weights); if(r.is_feasible) all.push(r);
+  }
+  all.sort((a,b)=>b.objective_score-a.objective_score);
+  return {method:'Exact classical exhaustive search',objective_version:OBJECTIVE_VERSION,
+    best_rotation:all[0]?.rotation || null,best_score:all[0]?.objective_score ?? null,
+    top_candidates:all.slice(0,5),total_space_searched:216,feasible_count:all.length,
+    suitabilityMatrix:matrix,runtime_ms:performance.now()-started};
+}
+function buildQUBOHamiltonian(envs,weights=DEFAULT_WEIGHTS,requestedPenalty=0) {
+  const matrix=suitabilityMatrix(envs),nCrops=6,nQubits=18;
+  const Q=Array.from({length:18},()=>Array(18).fill(0));
+  let bound=0;
+  for(let s=0;s<3;s++) for(let c=0;c<6;c++) {
+    const i=s*6+c;Q[i][i]=-P.display_scale*localBenefit(CROP_KEYS[c],matrix[s][CROP_KEYS[c]],weights)/SCALE;
+    bound+=Math.abs(Q[i][i]);
+  }
+  for(let s=0;s<2;s++) for(let a=0;a<6;a++) for(let b=0;b<6;b++) {
+    const value=-P.display_scale*getRotationTransitionBenefit(CROP_KEYS[a],CROP_KEYS[b])/SCALE;
+    Q[s*6+a][(s+1)*6+b]=value;bound+=Math.abs(value);
+  }
+  // Any objective difference is <= 2*sum|coefficient|. One biological violation cannot pay off.
+  const biologicalPenalty=2*bound+1;
+  for(let s=0;s<3;s++) for(let c=0;c<6;c++) if((matrix[s][CROP_KEYS[c]].is_lethal || matrix[s][CROP_KEYS[c]].model_excluded) && CROP_KEYS[c]!=='Fallow') {
+    Q[s*6+c][s*6+c]+=biologicalPenalty;
+  }
+  const objectiveBound=Q.flat().reduce((a,b)=>a+Math.abs(b),0);
+  // Every one-hot violation costs at least lambda; >2*objectiveBound dominates any objective gain.
+  const lambda=Math.max(requestedPenalty,2*objectiveBound+1);
+  for(let s=0;s<3;s++) for(let a=0;a<6;a++) {
+    Q[s*6+a][s*6+a]-=lambda;
+    for(let b=a+1;b<6;b++) Q[s*6+a][s*6+b]+=2*lambda;
+  }
+  return {Q,offset:3*lambda-P.display_offset*P.display_scale/SCALE,nCrops,nQubits,lambda,biologicalPenalty,scale:SCALE,
+    convention:'upper_triangular',suitabilityMatrix:matrix,objective_version:OBJECTIVE_VERSION};
+}
+function quboEnergy(model,bits) {
+  const x=typeof bits==='number' ? Array.from({length:model.Q.length},(_,i)=>(bits>>>i)&1) : bits;
+  let energy=model.offset || 0;
+  for(let i=0;i<model.Q.length;i++) if(x[i]) for(let j=i;j<model.Q.length;j++) if(x[j]) energy+=model.Q[i][j];
+  return energy;
+}
+function quboToIsing(model) {
+  const h=Array(model.Q.length).fill(0),couplings=[];
+  let constant=model.offset || 0;
+  for(let i=0;i<h.length;i++) {
+    h[i]-=model.Q[i][i]/2;constant+=model.Q[i][i]/2;
+    for(let j=i+1;j<h.length;j++) if(model.Q[i][j]) {
+      const J=model.Q[i][j]/4;h[i]-=J;h[j]-=J;constant+=J;couplings.push({i,j,J});
     }
   }
-
-  // Nếu mọi phương án đều tử địa (sa mạc cực khô hoặc băng hà), phương án duy nhất là Fallow
-  if (feasibleEvaluations.length === 0) {
-    bestRotation = ["Fallow", "Fallow", "Fallow"];
-    bestScore = 0.0;
-  }
-
-  feasibleEvaluations.sort((a, b) => b.objective_score - a.objective_score);
-
-  return {
-    method: "Exact Classical Exhaustive Search (216 States Evaluated · Hard Constraint Pruned)",
-    best_rotation: bestRotation,
-    best_score: bestScore === -Infinity ? 0.0 : round(bestScore, 1),
-    top_candidates: feasibleEvaluations.slice(0, 5),
-    total_space_searched: 216,
-    feasible_count: feasibleEvaluations.length,
-    suitabilityMatrix
-  };
+  return {h,couplings,constant};
 }
-
-/**
- * Xây dựng ma trận chi phí QUBO 18x18 biến nhị phân x_{s, c} (3 mùa x 6 cây)
- * Mã hóa toàn bộ:
- * - Hệ số tuyến tính đơn vụ (Linear single-crop benefit)
- * - Ràng buộc One-Hot nội vụ (Intra-season One-Hot penalty lambda * (sum x - 1)^2)
- * - Tương tác luân canh chuyển vụ liên mùa (Inter-season transition matrix)
- */
-function buildQUBOHamiltonian(seasonEnvs, weights = { soil: 0.33, water: 0.33, profit: 0.34 }, lambda = 2.0) {
-  const nCrops = CROP_KEYS.length;
-  const nQubits = 3 * nCrops; // 18
-  const linear = new Array(nQubits).fill(0);
-  const Q = Array.from({ length: nQubits }, () => new Array(nQubits).fill(0));
-
-  // 1. Tuyến tính: Điểm lợi thế đơn lẻ của cây c trong mùa s
-  seasonEnvs.forEach((env, s) => {
-    CROP_KEYS.forEach((ckey, ci) => {
-      const idx = s * nCrops + ci;
-      const suit = computeCropSeasonSuitability(ckey, env);
-
-      let score = 0;
-      if (ckey === "Fallow") {
-        score = env.rainSeasonAccum > 150 ? -0.20 : 0.05;
-      } else if (suit.is_lethal) {
-        score = -4.0; // Án tử hình sinh học trong Hamiltonian
-      } else {
-        const profVal = (weights.profit * SCIENTIFIC_CROP_PROFILES[ckey].base_profit * suit.yield_factor) / 35.0;
-        const soilVal = (weights.soil * Math.max(0, SCIENTIFIC_CROP_PROFILES[ckey].nitrogen_balance)) / 30.0;
-        const waterVal = -(weights.water * Math.abs(SCIENTIFIC_CROP_PROFILES[ckey].water_intensity) * (1 - env.soilMoistureAvg)) / 35.0;
-        score = profVal + soilVal + waterVal + 0.3 * (suit.suitability_score / 100.0);
-      }
-      linear[idx] = score;
-
-      // Đường chéo chính của QUBO: Q_ii = -score - lambda
-      Q[idx][idx] = -score - lambda;
-    });
-
-    // Ràng buộc One-Hot nội vụ: Phạt tương tác nếu 2 cây cùng vụ đồng thời được chọn
-    // Khai triển lambda * (sum x_i - 1)^2 = lambda * (-sum x_i + 2 * sum_{i < j} x_i * x_j)
-    for (let c1 = 0; c1 < nCrops - 1; c1++) {
-      for (let c2 = c1 + 1; c2 < nCrops; c2++) {
-        const q1 = s * nCrops + c1;
-        const q2 = s * nCrops + c2;
-        Q[q1][q2] += 2.0 * lambda;
-        Q[q2][q1] += 2.0 * lambda;
-      }
-    }
-  });
-
-  // 2. Tương tác luân canh liên vụ (Inter-season transitions):
-  // Thưởng đạm / Phạt độc canh giữa mùa s và mùa s+1
-  for (let s = 0; s < 2; s++) {
-    for (let c1 = 0; c1 < nCrops; c1++) {
-      for (let c2 = 0; c2 < nCrops; c2++) {
-        const q1 = s * nCrops + c1;
-        const q2 = (s + 1) * nCrops + c2;
-        const transBenefit = getRotationTransitionBenefit(CROP_KEYS[c1], CROP_KEYS[c2]) / 20.0; // chuẩn hóa tỷ lệ
-        // Cực tiểu hóa -J(x) -> trừ transBenefit
-        Q[q1][q2] -= transBenefit;
-        Q[q2][q1] -= transBenefit;
-      }
-    }
-  }
-
-  return { linear, Q, nCrops, nQubits, lambda };
+function applyQuboCostLayer(sv,model,gamma) {
+  const {h,couplings}=quboToIsing(model);
+  h.forEach((value,q)=>sv.rz(q,2*gamma*value));
+  for(const {i,j,J} of couplings) { sv.cx(i,j);sv.rz(j,2*gamma*J);sv.cx(i,j); }
+  // exp(-i gamma constant) is a global phase and can be omitted.
 }
-
-/**
- * Thuật toán Mạch Lượng tử QAOA 18-Qubit mô phỏng theo Hamiltonian QUBO hoàn chỉnh
- */
-function solveQuantumQAOA(seasonEnvs, weights = { soil: 0.33, water: 0.33, profit: 0.34 }, classicalTruth = null) {
-  const { linear, Q, nCrops, nQubits, lambda } = buildQUBOHamiltonian(seasonEnvs, weights);
-  const classical = classicalTruth || solveClassicalExactOptimizer(seasonEnvs, weights);
-
-  // Sweep các cặp góc biến thiên (Variational Parameter Grid Search) để tìm trạng thái tối ưu
-  const candidateAngles = [
-    { gamma: 0.785, beta: 0.523 },
-    { gamma: 0.450, beta: 0.320 },
-    { gamma: 1.050, beta: 0.650 }
-  ];
-
-  let bestSampling = null;
-  let bestFeasibleSampleCount = -1;
-
-  for (const { gamma, beta } of candidateAngles) {
-    try {
-      const sv = new Statevector(nQubits);
-
-      // 1. Lớp Hadamard tạo trạng thái chồng chập đều
-      for (let q = 0; q < nQubits; q++) sv.h(q);
-
-      // 2. Cost Hamiltonian: Pha RZ từ trọng số đường chéo QUBO
-      for (let q = 0; q < nQubits; q++) {
-        sv.rz(q, -2.0 * gamma * linear[q]);
-      }
-
-      // 3. Ràng buộc One-Hot QUBO: Phạt tương tác nếu 2 cây cùng vụ đồng thời được chọn
-      for (let s = 0; s < 3; s++) {
-        for (let c1 = 0; c1 < nCrops - 1; c1++) {
-          for (let c2 = c1 + 1; c2 < nCrops; c2++) {
-            const q1 = s * nCrops + c1, q2 = s * nCrops + c2;
-            sv.cx(q1, q2);
-            sv.rz(q2, gamma * (Q[q1][q2] / 2.0));
-            sv.cx(q1, q2);
-          }
-        }
-      }
-
-      // 4. Entanglement tương tác luân canh chuyển mùa
-      for (let s = 0; s < 2; s++) {
-        for (let ci = 0; ci < nCrops; ci++) {
-          const cNext = (ci + 1) % nCrops;
-          const q1 = s * nCrops + ci;
-          const q2 = (s + 1) * nCrops + cNext;
-          sv.cx(q1, q2);
-          sv.rz(q2, gamma * 0.35);
-          sv.cx(q1, q2);
-        }
-      }
-
-      // 5. Mixer Hamiltonian RX
-      for (let q = 0; q < nQubits; q++) sv.rx(q, 2.0 * beta);
-
-      const counts = sv.sample(1024);
-      let feasibleCount = 0;
-
-      for (const [bs, freq] of counts.entries()) {
-        const padded = bs.padStart(nQubits, "0").split("").reverse().join("");
-        let oneHotAll = true;
-        for (let s = 0; s < 3; s++) {
-          let sCount = 0;
-          for (let ci = 0; ci < nCrops; ci++) {
-            if (padded[s * nCrops + ci] === "1") sCount++;
-          }
-          if (sCount !== 1) { oneHotAll = false; break; }
-        }
-        if (oneHotAll) feasibleCount += freq;
-      }
-
-      if (feasibleCount > bestFeasibleSampleCount) {
-        bestFeasibleSampleCount = feasibleCount;
-        bestSampling = { counts, gamma, beta, feasibleCount };
-      }
-    } catch (e) {
-      // Bỏ qua lỗi góc
-    }
-  }
-
-  if (!bestSampling) {
-    return {
-      method: "Classical Exact Optimizer (Quantum Fallback)",
-      best_rotation: classical.best_rotation,
-      objective_score: classical.best_score,
-      optimality_gap_pct: 0.0,
-      feasibility_rate_pct: 0.0,
-      shots: 1024,
-      ok: false,
-      status: "infeasible_state"
-    };
-  }
-
-  const { counts, gamma, beta } = bestSampling;
-  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-
-  let bestFeasibleTrio = null;
-  let bestFeasibleObj = -Infinity;
-  let totalFeasibleShots = 0;
-
-  for (const [bs, freq] of sorted) {
-    const padded = bs.padStart(nQubits, "0").split("").reverse().join("");
-    const seasonPicks = [];
-    let isPureOneHot = true;
-
-    for (let s = 0; s < 3; s++) {
-      const activeCrops = [];
-      for (let ci = 0; ci < nCrops; ci++) {
-        if (padded[s * nCrops + ci] === "1") activeCrops.push(CROP_KEYS[ci]);
-      }
-      if (activeCrops.length === 1) {
-        seasonPicks.push(activeCrops[0]);
-      } else {
-        isPureOneHot = false;
-        break;
-      }
-    }
-
-    if (isPureOneHot) {
-      totalFeasibleShots += freq;
-      const evalObj = evaluateRotationObjective(seasonPicks, classical.suitabilityMatrix, weights);
-      if (evalObj.is_feasible && evalObj.objective_score > bestFeasibleObj) {
-        bestFeasibleObj = evalObj.objective_score;
-        bestFeasibleTrio = seasonPicks;
-      }
-    }
-  }
-
-  const feasibilityRatePct = round((totalFeasibleShots / 1024.0) * 100.0, 1);
-
-  // Nếu không có shot nào khả thi hoặc không tìm thấy trio khả thi:
-  // Đánh dấu trung thực ok: false và fallback về Classical Exact Ground Truth
-  if (!bestFeasibleTrio || totalFeasibleShots === 0) {
-    return {
-      method: `18-Qubit Statevector QAOA Prototype (gamma=${gamma}, beta=${beta}) · Infeasible Sampled`,
-      best_rotation: classical.best_rotation,
-      objective_score: classical.best_score,
-      optimality_gap_pct: 0.0,
-      feasibility_rate_pct: feasibilityRatePct,
-      classical_ground_truth: classical.best_rotation,
-      classical_best_score: classical.best_score,
-      shots: 1024,
-      ok: false,
-      status: "experimental_unconstrained_mixer_fallback"
-    };
-  }
-
-  let optimalityGapPct = 0.0;
-  if (classical.best_score > 0) {
-    const rawGap = ((classical.best_score - Math.max(0, bestFeasibleObj)) / classical.best_score) * 100.0;
-    optimalityGapPct = round(Math.max(0.0, Math.min(100.0, rawGap)), 2);
-  }
-
-  return {
-    method: `18-Qubit Variational QAOA (1024 shots, gamma=${gamma}, beta=${beta})`,
-    best_rotation: bestFeasibleTrio,
-    objective_score: round(Math.max(0, bestFeasibleObj), 1),
-    optimality_gap_pct: optimalityGapPct,
-    feasibility_rate_pct: feasibilityRatePct,
-    classical_ground_truth: classical.best_rotation,
-    classical_best_score: classical.best_score,
-    shots: 1024,
-    ok: true,
-    status: "feasible_measured"
-  };
+function rotationBits(rotation) {return rotation.reduce((bits,c,s)=>bits | (1<<(s*6+CROP_KEYS.indexOf(c))),0);}
+function seededRandom(seed=42) {
+  let state=seed>>>0;
+  return ()=>{state=(Math.imul(1664525,state)+1013904223)>>>0;return state/4294967296;};
 }
-
-module.exports = {
-  CROP_KEYS,
-  SEASON_MONTHS,
-  getRotationTransitionBenefit,
-  buildSeasonEnvironments,
-  evaluateRotationObjective,
-  solveClassicalExactOptimizer,
-  solveQuantumQAOA
-};
+// Exact simulation in the feasible one-hot subspace (<=216 amplitudes), not hardware execution.
+// Per-season mixer exp(-i beta A), A = complete-graph adjacency over biologically allowed crops.
+// Each fiber differs only in that season: neither one-hot nor biological feasibility can leak.
+function prepareFeasibleModel(model) {
+  const allowed=[0,1,2].map(s=>CROP_KEYS.filter(c=>(!model.suitabilityMatrix[s][c].is_lethal && !model.suitabilityMatrix[s][c].model_excluded) || c==='Fallow'));
+  const rotations=[];
+  for(const a of allowed[0]) for(const b of allowed[1]) for(const c of allowed[2]) rotations.push([a,b,c]);
+  const fibers=[];
+  for(let s=0;s<3;s++) {
+    const groups=new Map();
+    rotations.forEach((r,i)=>{const key=r.filter((_,j)=>j!==s).join('|');if(!groups.has(key))groups.set(key,[]);groups.get(key).push(i);});
+    fibers.push(...groups.values());
+  }
+  return {rotations,fibers,energies:rotations.map(r=>quboEnergy(model,rotationBits(r)))};
+}
+function simulateFeasibleQAOA(space,gamma,beta) {
+  const n=space.rotations.length;
+  const re=Array(n).fill(1/Math.sqrt(n)),im=Array(n).fill(0);
+  for(let i=0;i<n;i++) {const a=-gamma*space.energies[i];re[i]=Math.cos(a)/Math.sqrt(n);im[i]=Math.sin(a)/Math.sqrt(n);}
+  for(const indices of space.fibers) {
+    const k=indices.length,mr=indices.reduce((a,i)=>a+re[i],0)/k,mi=indices.reduce((a,i)=>a+im[i],0)/k;
+    const c=Math.cos(beta),s=Math.sin(beta),c0=Math.cos(-beta*(k-1)),s0=Math.sin(-beta*(k-1));
+    for(const i of indices) {
+      const r=re[i]-mr,x=im[i]-mi;
+      re[i]=c*r-s*x+c0*mr-s0*mi;im[i]=s*r+c*x+s0*mr+c0*mi;
+    }
+  }
+  const probabilities=re.map((r,i)=>r*r+im[i]*im[i]);
+  return {probabilities,expected_energy:probabilities.reduce((a,p,i)=>a+p*space.energies[i],0)};
+}
+function solveQuantumQAOA(envs,weights=DEFAULT_WEIGHTS,classicalTruth=null,options={}) {
+  const started=performance.now(),classical=classicalTruth || solveClassicalExactOptimizer(envs,weights);
+  const fallback=(reason)=>({method:'Exact classical fallback',best_rotation:classical.best_rotation,
+    objective_score:classical.best_score,optimality_gap_pct:null,feasibility_rate_pct:null,
+    quantum_available:false,quantum_feasible:false,fallback_used:true,hardware_executed:false,
+    objective_version:OBJECTIVE_VERSION,shots:0,ok:false,status:reason,runtime_ms:performance.now()-started});
+  const maxRuntime=options.max_runtime_ms ?? 3000;
+  if(options.disabled) return fallback('quantum_disabled');
+  if(!Number.isFinite(maxRuntime) || maxRuntime<=0) return fallback('runtime_limit');
+  const shots=options.shots ?? 1024;
+  if(!Number.isInteger(shots) || shots<=0) return fallback('invalid_shots');
+  try {
+    const model=buildQUBOHamiltonian(envs,weights),space=prepareFeasibleModel(model);
+    if(!space.rotations.length) return fallback('no_feasible_state');
+    const feasible=space.rotations.map(r=>evaluateRotationObjective(r,model.suitabilityMatrix,weights).is_feasible);
+    const initial=simulateFeasibleQAOA(space,0,0);let best={...initial,gamma:0,beta:0};
+    // Deterministic variational search minimizes expectation, never feasible-shot count.
+    for(let g=1;space.rotations.length>1 && g<=24;g++) for(let b=1;b<=16;b++) {
+      if(performance.now()-started>maxRuntime) return fallback('runtime_limit');
+      const gamma=g*Math.PI/6,beta=b*Math.PI/32,result=simulateFeasibleQAOA(space,gamma,beta);
+      if(result.expected_energy<best.expected_energy) best={...result,gamma,beta};
+    }
+    const rng=seededRandom(options.seed ?? 42),counts=Array(space.rotations.length).fill(0);
+    for(let shot=0;shot<shots;shot++) {
+      const u=rng();let acc=0,index=counts.length-1;
+      for(let i=0;i<counts.length;i++) {acc+=best.probabilities[i];if(u<acc){index=i;break;}}
+      counts[index]++;
+    }
+    let index=-1;
+    counts.forEach((count,i)=>{if(count>0 && feasible[i] && (index<0 || space.energies[i]<space.energies[index]))index=i;});
+    if(index<0) return fallback('no_feasible_sample');
+    const result=evaluateRotationObjective(space.rotations[index],model.suitabilityMatrix,weights);
+    const gap=Math.abs(classical.best_score)>1e-10 ? Math.max(0,(classical.best_score-result.objective_score)/Math.abs(classical.best_score)*100) : null;
+    return {method:'Experimental QAOA simulation (feasible one-hot subspace)',best_rotation:result.rotation,
+      objective_version:model.objective_version,objective_score:result.objective_score,
+      reference_usage:'Exact result is used only for gap reporting and explicit fallback; angles and sampled candidate use QUBO energies only.',
+      quantum_available:true,quantum_feasible:true,fallback_used:false,ok:true,status:'simulated_feasible',
+      optimality_gap_pct:gap===null ? null : round(gap),
+      feasibility_rate_pct:100*counts.reduce((sum,count,i)=>sum+(feasible[i]?count:0),0)/shots,
+      feasible_probability:best.probabilities.reduce((sum,p,i)=>sum+(feasible[i]?p:0),0),
+      sample_feasible_count:counts.reduce((sum,count,i)=>sum+(feasible[i]?count:0),0),
+      feasible_space_size:space.rotations.length,
+      expected_energy:best.expected_energy,initial_expected_energy:initial.expected_energy,
+      angles:{gamma:best.gamma,beta:best.beta},shots,seed:options.seed ?? 42,counts,
+      classical_best_score:classical.best_score,classical_ground_truth:classical.best_rotation,
+      reference:'Exact exhaustive search, 216 rotations, same planning_rotation_v5 objective',
+      runtime_ms:performance.now()-started,hardware_executed:false,quantum_advantage_claimed:false};
+  } catch(e) {return {...fallback('simulation_error'),error:e.message};}
+}
+module.exports={CROP_KEYS,SEASON_MONTHS,getRotationTransitionBenefit,buildSeasonEnvironments,evaluateRotationObjective,
+  solveClassicalExactOptimizer,buildQUBOHamiltonian,quboEnergy,quboToIsing,applyQuboCostLayer,rotationBits,
+  prepareFeasibleModel,simulateFeasibleQAOA,seededRandom,solveQuantumQAOA};

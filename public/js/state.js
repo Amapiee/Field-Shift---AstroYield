@@ -4,7 +4,7 @@ let farmMarker = null;
 let chartTemp = null, chartRain = null, chartNdvi = null, chartRadar = null;
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const SEASON_NAMES = ["🌱 Xuân","☀️ Hè Thu","❄️ Đông"];
+const SEASON_NAMES = ["T1–T4 (minh họa)","T5–T8 (minh họa)","T9–T12 (minh họa)"];
 
 // ─── Emoji sanitizer ─────────────────────────────────────────────────────────
 function fixCropLabel(label) {

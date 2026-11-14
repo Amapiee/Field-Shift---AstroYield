@@ -1,7 +1,21 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const express = require("express");
-const apiRouter = require("../src/routes/api");
+const {createApiRouter} = require('../src/routes/api');
+const {fetchNasa} = require('../src/services/nasa');
+const {createScientificRecord} = require('../src/algorithms/01_nasa_data_provider');
+const {NASA_KEYS} = require('../src/config/crops');
+const fixtures = require('./fixtures/climates.json');
+const apiRouter = createApiRouter({
+  coldHistoryProvider:async()=>({status:'unavailable',records:[]}),
+  elevationProvider:async()=>({status:'unavailable',value:null}),
+  climateProvider:(lat,lon)=>fetchNasa(lat,lon,{provider:async()=>{
+    const f=fixtures.find(f=>f.coords[0]===lat && f.coords[1]===lon) || fixtures[0];
+    return {source:'Controlled offline fixture: '+f.name,period:{start:1991,end:2020},
+      data:Object.fromEntries(NASA_KEYS.map(key=>[key,f[key].map(value=>createScientificRecord(key,value,'climatology','valid',{period:{start:1991,end:2020}}))]))};
+  }}),
+  historyProvider:async()=>({records:[],status:'unavailable',reason:'Offline test without history'})
+});
 
 test("POST /api/analyze trả về dữ liệu đúng chuẩn giao diện cho đất liền nông nghiệp", async () => {
   const app = express();
@@ -28,6 +42,9 @@ test("POST /api/analyze trả về dữ liệu đúng chuẩn giao diện cho đ
     const data = await res.json();
     assert.strictEqual(data.ok, true);
     assert.ok(data.source);
+    assert.strictEqual(data.spi.status,"unavailable");
+    assert.ok(data.spi.details.every(r=>r.spi_value===null && r.spi_1m===null));
+    assert.strictEqual(data.scenarios.quantum.fallback_used,false);
     assert.ok(data.satellite);
     assert.strictEqual(data.monthly.T2M.length, 12);
     assert.strictEqual(data.monthly.RAIN.length, 12);

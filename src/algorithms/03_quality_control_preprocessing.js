@@ -2,18 +2,18 @@
  * ==============================================================================
  * THUẬT TOÁN 03: DATA PREPROCESSING & QUALITY CONTROL (QC)
  * ==============================================================================
- * 
+ *
  * 1. BỐI CẢNH KHOA HỌC:
  *    Code nguyên bản của FarmShift gặp 2 lỗi nghiêm trọng trong tầng tiền xử lý:
  *    - Lỗi 1: Coi lượng mưa PRECTOTCORR = 0 là dữ liệu lỗi và tự ý thay bằng giá trị mock!
  *      Trong nông học, lượng mưa bằng 0mm là sự thật vật lý thể hiện mùa khô/hạn hán gay gắt.
  *    - Lỗi 2: Lấy dữ liệu mock đắp vào các tháng thiếu nhưng cờ `_mock` tổng thể vẫn báo `false`,
  *      khiến người dùng lầm tưởng toàn bộ là dữ liệu NASA thật.
- * 
+ *
  * 2. LOẠI DỮ LIỆU PHÙ HỢP:
  *    - Chuỗi thời gian khí tượng nông nghiệp (12 tháng climatology hoặc chuỗi ngày).
  *    - Các chỉ số: Nhiệt độ (°C), Mưa (mm), Bức xạ (MJ/m²), Độ ẩm đất (0-1).
- * 
+ *
  * 3. NGUYÊN TẮC THUẬT TOÁN QC & LÀM SẠCH:
  *    - Bước 1: Physical Boundary Check (Giới hạn hợp lý sinh lý - WMO standards).
  *      + T2M, TS: [-50°C, 65°C]
@@ -32,6 +32,7 @@
 
 const WMO_PHYSICAL_BOUNDS = {
   T2M: { min: -50.0, max: 65.0, zeroValid: true },
+  T2M_MIN: { min: -100.0, max: 65.0, zeroValid: true },
   TS: { min: -55.0, max: 75.0, zeroValid: true },
   PRECTOTCORR: { min: 0.0, max: 2000.0, zeroValid: true }, // QUAN TRỌNG: Mưa = 0 là hợp lệ!
   ALLSKY_SFC_SW_DWN: { min: 0.0, max: 35.0, zeroValid: true },
@@ -66,7 +67,8 @@ function medianAbsoluteDeviation(values, med) {
  */
 function runQualityControl(rawSeries, variableKey, fallbackSeries = null, options = {}) {
   const isCyclic = options.isCyclic !== undefined ? options.isCyclic : true;
-  const maxGap = options.maxGap || 4;
+  const maxGap = options.maxGap ?? 4;
+  if (!Number.isInteger(maxGap) || maxGap < 0) throw new RangeError("maxGap must be a nonnegative integer");
 
   if (!rawSeries || !rawSeries.length) {
     return {
@@ -93,12 +95,15 @@ function runQualityControl(rawSeries, variableKey, fallbackSeries = null, option
   // Pha 1: Kiểm tra tính hợp lệ cơ bản & Vật lý
   for (let i = 0; i < n; i++) {
     const rawItem = rawSeries[i];
-    const val = typeof rawItem === "object" && rawItem !== null ? rawItem.value : Number(rawItem);
+    const raw = rawItem !== null && typeof rawItem === "object" ? rawItem.value : rawItem;
+    // Only finite numbers and explicit numeric strings are accepted; null/booleans/blank are missing.
+    const val = typeof raw === "number" ? raw
+      : typeof raw === "string" && raw.trim() !== "" ? Number(raw) : null;
 
     let isInvalid = false;
     let reason = "valid";
 
-    if (val === null || val === undefined || isNaN(val)) {
+    if (val === null || !Number.isFinite(val)) {
       isInvalid = true;
       reason = "missing_or_null";
     } else if (val <= -900) {
@@ -116,7 +121,7 @@ function runQualityControl(rawSeries, variableKey, fallbackSeries = null, option
         index: i,
         original_value: val,
         clean_value: val,
-        status: "observed",
+        status: rawItem && typeof rawItem === "object" ? (rawItem.status || "observed") : "observed",
         quality: "pass",
         flag: reason
       });
@@ -144,6 +149,20 @@ function runQualityControl(rawSeries, variableKey, fallbackSeries = null, option
         const item = qcResult[validIdx];
         const modZ = 0.6745 * Math.abs(item.clean_value - med) / mad;
         if (modZ > threshold) {
+          // Monthly climatological means are seasonal, not 12 exchangeable samples.
+          // Also require a local Hampel outlier in a cyclic five-month window.
+          // Retain the original value; this is a heuristic QC screen, not data correction.
+          if (options.seasonalClimatology && n === 12) {
+            const window = [-2,-1,0,1,2].map(offset => qcResult[(validIdx+offset+n)%n].clean_value)
+              .filter(Number.isFinite);
+            if (window.length < 3) continue;
+            const localMedian = median(window), localMAD = medianAbsoluteDeviation(window,localMedian);
+            const localZ = 0.6745 * Math.abs(item.clean_value-localMedian) / (localMAD>1e-6 ? localMAD : mad);
+            if (localZ <= threshold) {
+              item.flag = 'seasonal_peak_retained';
+              continue;
+            }
+          }
           item.quality = "suspect_outlier";
           item.flag = `modified_z_score_${modZ.toFixed(2)}_exceeds_${threshold}`;
           outlierCount++;
@@ -152,7 +171,8 @@ function runQualityControl(rawSeries, variableKey, fallbackSeries = null, option
     }
   }
 
-  // Pha 3: Xử lý lỗ hổng (Gap Filling / Interpolation)
+  // Freeze the anchors before filling. Every point in a gap uses the same original endpoints.
+  const anchors = qcResult.map(r => r.clean_value);
   let interpolatedCount = 0;
   for (let i = 0; i < n; i++) {
     if (qcResult[i].clean_value === null) {
@@ -162,18 +182,18 @@ function runQualityControl(rawSeries, variableKey, fallbackSeries = null, option
         // Nội suy chu kỳ (Cyclic Interpolation cho 12 tháng khí hậu)
         for (let offset = 1; offset < n; offset++) {
           const p = (i - offset + n) % n;
-          if (prevIdx === null && qcResult[p].clean_value !== null) prevIdx = p;
+          if (prevIdx === null && anchors[p] !== null) prevIdx = p;
           const next = (i + offset) % n;
-          if (nextIdx === null && qcResult[next].clean_value !== null) nextIdx = next;
+          if (nextIdx === null && anchors[next] !== null) nextIdx = next;
           if (prevIdx !== null && nextIdx !== null) break;
         }
       } else {
         // Nội suy thời gian liên tục (Chronological Interpolation)
         for (let p = i - 1; p >= 0; p--) {
-          if (qcResult[p].clean_value !== null) { prevIdx = p; break; }
+          if (anchors[p] !== null) { prevIdx = p; break; }
         }
         for (let next = i + 1; next < n; next++) {
-          if (qcResult[next].clean_value !== null) { nextIdx = next; break; }
+          if (anchors[next] !== null) { nextIdx = next; break; }
         }
       }
 
@@ -182,16 +202,19 @@ function runQualityControl(rawSeries, variableKey, fallbackSeries = null, option
         ? (nextIdx > prevIdx ? nextIdx - prevIdx - 1 : (n - prevIdx - 1) + nextIdx)
         : Infinity;
 
-      if (prevIdx !== null && nextIdx !== null && gapLength <= maxGap) {
-        const vPrev = qcResult[prevIdx].clean_value;
-        const vNext = qcResult[nextIdx].clean_value;
-        const interpVal = (vPrev + vNext) / 2.0;
+      if (prevIdx !== null && nextIdx !== null && prevIdx !== nextIdx && gapLength <= maxGap) {
+        const vPrev = anchors[prevIdx];
+        const vNext = anchors[nextIdx];
+        const distance = isCyclic ? (i - prevIdx + n) % n : i - prevIdx;
+        const interpVal = vPrev + (vNext - vPrev) * distance / (gapLength + 1);
         qcResult[i].clean_value = Math.round(interpVal * 1000) / 1000;
         qcResult[i].status = "interpolated";
         qcResult[i].quality = "interpolated";
+        qcResult[i].anchors = [prevIdx, nextIdx];
+        qcResult[i].original_status = "missing";
         qcResult[i].flag += `; filled_by_${isCyclic ? "cyclic" : "linear"}_interpolation`;
         interpolatedCount++;
-      } else if (fallbackSeries && fallbackSeries[i] !== undefined && fallbackSeries[i] !== null) {
+      } else if (fallbackSeries && Number.isFinite(fallbackSeries[i]) && fallbackSeries[i] >= bounds.min && fallbackSeries[i] <= bounds.max) {
         qcResult[i].clean_value = fallbackSeries[i];
         qcResult[i].status = "mock";
         qcResult[i].quality = "fallback_simulated";
@@ -212,6 +235,7 @@ function runQualityControl(rawSeries, variableKey, fallbackSeries = null, option
       valid_observed: validValues.length,
       interpolated_or_filled: interpolatedCount,
       suspect_outliers: outlierCount,
+      outlier_test: options.seasonalClimatology && n===12 ? 'global_MAD_and_cyclic_5_month_Hampel_3.5' : 'global_MAD_3.5',
       missing: missingCount,
       has_missing_unfilled: missingCount > 0,
       data_integrity_score: n > 0 ? Math.round((validValues.length / n) * 100) : 0
@@ -232,7 +256,7 @@ if (require.main === module) {
   // Kiểm thử trường hợp mưa = 0mm và giá trị sentinel -999
   const testRainSeries = [120, 150, 0, 0, 5, 200, -999, 180, 220, 95, 40, 10];
   const qcRain = runQualityControl(testRainSeries, "PRECTOTCORR");
-  
+
   console.log("Chuỗi mưa gốc:", testRainSeries);
   console.log("Chuỗi mưa sau QC:", qcRain.clean_array);
   console.log("Kiểm tra tháng 3 (0mm):", qcRain.series[2].status, "| Quality:", qcRain.series[2].quality);

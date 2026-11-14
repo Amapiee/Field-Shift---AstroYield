@@ -1,21 +1,6 @@
-/**
- * ==============================================================================
- * THUẬT TOÁN 08: MULTI-SCALAR STANDARDIZED PRECIPITATION INDEX (SPI) & ANOMALY (V3)
- * ==============================================================================
- * 
- * 1. BỐI CẢNH KHOA HỌC & CHUẨN HÓA WMO:
- *    - Hướng dẫn Tổ chức Khí tượng Thế giới (WMO-No. 1090): SPI đòi hỏi phân phối xác suất
- *      Gamma hai tham số (Shape alpha, Scale beta) được khớp độc lập cho từng tháng trong năm
- *      trên chuỗi quan trắc lịch sử tối thiểu 20-30 năm, thay vì gộp chung 12 tháng của 1 năm đơn lẻ.
- *    - Khắc phục lỗi modulo: Tuyệt đối không nối tháng đầu năm với tháng cuối năm bằng phép modulo
- *      `(i - 2 + n) % n` khi không có chuỗi thời gian liên tục nhiều năm.
- *    - Thay thế xấp xỉ Wilson-Hilferty bằng Hàm Gamma không đầy đủ chính xác (Regularized Incomplete
- *      Gamma Function P(a, x)) qua chuỗi Taylor và liên phân số Lentz.
- *    - Hỗ trợ cả 2 chế độ:
- *      + `calculateMultiYearSPI`: Tính SPI-1 và SPI-3 chuẩn xác trên chuỗi lịch sử nhiều năm (Multi-Year Series).
- *      + `calculateSPI`: Tính SPI trên chuẩn khí hậu 30 năm (30-Year Climatological Normals) với tham số phân phối chuẩn hóa.
- */
-
+const {assessColdRisk,coldRiskAlerts}=require('../services/coldRisk');
+// SPI uses continuous dated monthly history with at least 30 samples per calendar month.
+// This implementation requests 31 complete years for SPI-3. No history is synthesized.
 function round(v, dec = 2) {
   const p = Math.pow(10, dec);
   return Math.round(v * p) / p;
@@ -94,7 +79,7 @@ function regularizedGammaP(a, x) {
  * Ước lượng tham số Phân phối Gamma bằng phương pháp Hợp lý cực đại (Thom, 1958)
  */
 function fitGammaDistribution(values) {
-  const positive = values.filter(x => x > 0.05);
+  const positive = values.filter(x => Number.isFinite(x) && x > 0);
   const n = values.length;
   if (n === 0) return { q: 1.0, alpha: 1.0, beta: 1.0, mean: 0.0, isDefault: true };
 
@@ -111,7 +96,7 @@ function fitGammaDistribution(values) {
   const A = Math.log(mean) - (sumLn / positive.length);
 
   if (A <= 1e-6) {
-    return { q, alpha: 20.0, beta: mean / 20.0, mean, isDefault: false };
+    return { q, alpha: null, beta: null, mean, isDefault: true };
   }
 
   const alpha = (1.0 + Math.sqrt(1.0 + (4.0 * A) / 3.0)) / (4.0 * A);
@@ -146,7 +131,23 @@ function cdfToStandardNormal(p) {
  * @param {Array<{year: number, month: number, rain_mm: number}>|Array<number>} series Chuỗi mưa nhiều năm liên tục
  * @param {number} timescale Thang đo thời gian (1 = SPI-1, 3 = SPI-3, 6 = SPI-6)
  */
+function validateRainfallHistory(series) {
+  if (!Array.isArray(series) || series.length < 31*12) return {ok:false,reason:'At least 31 complete years are required (30 samples per ending month for SPI-3).'};
+  for (let i=0;i<series.length;i++) {
+    const r=series[i],p=series[i-1];
+    if (!r || !Number.isInteger(r.year) || !Number.isInteger(r.month) || r.month<1 || r.month>12 || !Number.isFinite(r.rain_mm) || r.rain_mm<0)
+      return {ok:false,reason:'Invalid dated monthly rainfall record'};
+    if(r.date!==undefined && r.date!==`${r.year}-${String(r.month).padStart(2,'0')}-01`)
+      return {ok:false,reason:'Monthly date does not match its year/month'};
+    if (p && r.year*12+r.month !== p.year*12+p.month+1) return {ok:false,reason:'Monthly history must be chronological, continuous and unique'};
+  }
+  return {ok:true};
+}
 function calculateMultiYearSPI(series, timescale = 1) {
+  if (!Number.isInteger(timescale) || timescale < 1) throw new RangeError('Invalid SPI timescale');
+  if (!Array.isArray(series) || !series.length) return [];
+  const validation = validateRainfallHistory(series);
+  if (!validation.ok) return series.map(rec => ({...rec,spi:null,status:'unavailable',reason:validation.reason,timescale}));
   // Chuẩn hóa định dạng mảng
   const rainRecords = typeof series[0] === "number"
     ? series.map((r, idx) => ({ index: idx, month: (idx % 12) + 1, rain_mm: r }))
@@ -178,7 +179,7 @@ function calculateMultiYearSPI(series, timescale = 1) {
         monthValues.push(accumRain[i]);
       }
     }
-    monthlyDistributions[m] = fitGammaDistribution(monthValues);
+    monthlyDistributions[m] = monthValues.length >= 30 ? fitGammaDistribution(monthValues) : {isDefault:true};
   }
 
   // 3. Tính SPI cho từng bản ghi bằng phân phối Gamma chính xác
@@ -189,14 +190,17 @@ function calculateMultiYearSPI(series, timescale = 1) {
         ...rec,
         accum_rain: null,
         spi: null,
+        status:'unavailable',
+        reason:'Insufficient preceding accumulation months',
         category: "Chưa đủ chuỗi tích lũy",
         timescale
       };
     }
 
-    const { alpha, beta, q } = monthlyDistributions[rec.month];
+    const { alpha, beta, q, isDefault } = monthlyDistributions[rec.month];
+    if (isDefault) return {...rec,accum_rain:accum,spi:null,status:'unavailable',reason:'Insufficient or degenerate monthly distribution',timescale};
     let H;
-    if (accum <= 0.05) {
+    if (accum === 0) {
       H = q;
     } else {
       const gammaP = regularizedGammaP(alpha, accum / beta);
@@ -215,91 +219,20 @@ function calculateMultiYearSPI(series, timescale = 1) {
       ...rec,
       accum_rain: round(accum, 1),
       spi: spiValue,
+      status:'available',
       category,
       timescale
     };
   });
 }
 
-/**
- * Sinh chuỗi mưa lịch sử đa niên (Multi-Year Historical Rainfall Series)
- * Dựa trên chuẩn khí hậu climatology 12 tháng kết hợp phương sai liên năm (Inter-Annual Variance)
- * Mô phỏng quá trình Monte Carlo Markov Chain theo phân phối Gamma chuẩn khí tượng
- */
-function generateHistoricalMonthlyRainfall(climatologyRain, years = 20, seed = 42) {
-  const series = [];
-  let s = seed;
-  const pseudoRand = () => {
-    s = (s * 16807 + 0) % 2147483647;
-    return (s - 1) / 2147483646;
-  };
 
-  const startYear = 2004;
-  for (let y = 0; y < years; y++) {
-    const year = startYear + y;
-    for (let m = 0; m < 12; m++) {
-      const climMean = climatologyRain[m] || 0.0;
-      if (climMean < 0.1) {
-        series.push({ year, month: m + 1, rain_mm: 0.0 });
-        continue;
-      }
-      // Hệ số biến động liên năm tự nhiên cv ~ 0.25 - 0.35
-      const u1 = Math.max(1e-6, pseudoRand());
-      const u2 = Math.max(1e-6, pseudoRand());
-      const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-      const cv = 0.28;
-      const rain = Math.max(0.0, Math.round((climMean * (1.0 + cv * z)) * 10) / 10);
-      series.push({ year, month: m + 1, rain_mm: rain });
-    }
-  }
-  return series;
-}
 
-/**
- * Tính toán Chỉ số Hạn hán Chuẩn hóa SPI từ 12 tháng Chuẩn khí hậu (30-Year Climatological Mean)
- * Có sử dụng hàm phân phối tích lũy Gamma không đầy đủ chính xác
- */
+
+// A climatological mean has no interannual distribution: it cannot provide SPI.
 function calculateSPI(rainMonthly) {
-  const n = rainMonthly.length;
-  if (!n) return [];
-  const gammaFit = fitGammaDistribution(rainMonthly);
-  const { alpha, beta, q } = gammaFit;
-
-  return rainMonthly.map((rain, idx) => {
-    let H;
-    if (rain <= 0.05) {
-      H = q;
-    } else {
-      const gammaP = regularizedGammaP(alpha, rain / beta);
-      H = q + (1.0 - q) * gammaP;
-    }
-
-    const spiValue = round(cdfToStandardNormal(H), 2);
-    let category = "Gần mức bình thường";
-    let alertLevel = "ok";
-
-    if (spiValue <= -2.0) {
-      category = "Hạn hán cực kỳ nghiêm trọng (Extreme Drought)";
-      alertLevel = "danger";
-    } else if (spiValue <= -1.5) {
-      category = "Hạn hán nặng (Severe Drought)";
-      alertLevel = "warning";
-    } else if (spiValue <= -1.0) {
-      category = "Hạn hán vừa (Moderate Drought)";
-      alertLevel = "warning";
-    } else if (spiValue >= 2.0) {
-      category = "Mưa lũ cực đoan (Extreme Wet / Flood Risk)";
-      alertLevel = "warning";
-    }
-
-    return {
-      month: idx + 1,
-      rain_mm: rain,
-      spi_value: spiValue,
-      category,
-      alert_level: alertLevel
-    };
-  });
+  return rainMonthly.map((rain,idx)=>({month:idx+1,rain_mm:rain,spi_value:null,status:'unavailable',
+    reason:'SPI requires dated multi-year monthly history, not 12 climatological means.'}));
 }
 
 /**
@@ -310,39 +243,30 @@ function detectEnvironmentalAnomalies(monthlyData, multiYearRainSeries = null) {
   const { TS, GWETROOT, PRECTOTCORR, T2M } = monthlyData;
 
   // Sử dụng chuỗi lịch sử nhiều năm để tính WMO SPI-1 và SPI-3 chuẩn xác
-  const history = multiYearRainSeries || generateHistoricalMonthlyRainfall(PRECTOTCORR, 20);
-  const multiYearSPI3 = calculateMultiYearSPI(history, 3);
-  const multiYearSPI1 = calculateMultiYearSPI(history, 1);
-
-  // Lấy kết quả SPI của 12 tháng gần nhất (năm hiện tại)
-  const recentSPI3 = multiYearSPI3.slice(-12);
-  const recentSPI1 = multiYearSPI1.slice(-12);
-
-  const spiResults = recentSPI3.map((rec, idx) => ({
-    month: idx + 1,
-    rain_mm: PRECTOTCORR[idx],
-    accum_rain_3m: rec.accum_rain,
-    spi_value: rec.spi !== null ? rec.spi : 0.0,
-    spi_1m: recentSPI1[idx]?.spi ?? 0.0,
-    category: rec.category,
-    alert_level: (rec.spi !== null && rec.spi <= -1.5) ? "danger" : (rec.spi !== null && rec.spi <= -1.0) ? "warning" : "ok"
+  const history = multiYearRainSeries || [];
+  const validation = validateRainfallHistory(history);
+  const spi3 = validation.ok ? calculateMultiYearSPI(history,3).slice(-12) : [];
+  const spi1 = validation.ok ? calculateMultiYearSPI(history,1).slice(-12) : [];
+  const spi6 = validation.ok ? calculateMultiYearSPI(history,6).slice(-12) : [];
+  const available = validation.ok && spi3.every(r=>r.spi !== null) && spi1.every(r=>r.spi !== null) && spi6.every(r=>r.spi!==null);
+  const reason = available ? null : validation.reason || 'Insufficient nondegenerate monthly rainfall distributions';
+  const spiResults = Array.from({length:12},(_,idx)=>({
+    year:spi3[idx]?.year || null,month:spi3[idx]?.month || idx+1,
+    rain_mm:available ? spi3[idx].rain_mm : null,
+    accum_rain_3m:spi3[idx]?.accum_rain ?? null,
+    spi_value:available ? spi3[idx].spi : null,spi_1m:available ? spi1[idx].spi : null,
+    spi_3m:available ? spi3[idx].spi : null,spi_6m:available ? spi6[idx].spi : null,
+    timescales:[1,3,6],type:'historical_spi',
+    status:available ? 'available' : 'unavailable',reason,
+    category:available ? spi3[idx].category : 'Unavailable',
+    alert_level:available && spi3[idx].spi <= -1.5 ? 'danger' : available && spi3[idx].spi <= -1 ? 'warning' : 'ok'
   }));
 
-  const alerts = [];
+  const alerts = coldRiskAlerts(monthlyData._cold_risk || assessColdRisk(monthlyData),monthlyData._terrain);
   const annualRain = PRECTOTCORR.reduce((a, b) => a + b, 0);
   const minT2M = T2M ? Math.min(...T2M) : 10;
   const maxTs = Math.max(...TS);
   const minGwet = Math.min(...GWETROOT);
-
-  // 1. Cảnh báo Băng giá / Đóng băng cực đoan (Cryospheric Frost Hazard)
-  if (minT2M < 0.0) {
-    const frozenMonths = T2M.map((t, i) => t < 0 ? `T${i + 1}` : null).filter(Boolean);
-    alerts.push({
-      level: "danger",
-      satellite: "NASA MERRA-2 Thermal",
-      msg: `🔴 MERRA-2: Băng giá dưới 0°C xuất hiện (${frozenMonths.join(", ")}) — Cây trồng nhiệt đới/ôn đới chết buốt hoàn toàn!`
-    });
-  }
 
   // 2. Cảnh báo Sa mạc cực khô hạn (Hyper-Arid Anomaly)
   if (annualRain < 120.0 && minGwet < 0.22) {
@@ -354,13 +278,13 @@ function detectEnvironmentalAnomalies(monthlyData, multiYearRainSeries = null) {
   }
 
   // 3. Cảnh báo Hạn hán nông nghiệp theo Multi-Year SPI-3
-  const droughtMonths = spiResults.filter(s => s.spi_value <= -1.2);
+  const droughtMonths = spiResults.filter(s => s.spi_value !== null && s.spi_value <= -1.2);
   if (droughtMonths.length > 0 && annualRain >= 120.0) {
     const monthsStr = droughtMonths.map(s => `T${s.month}`).join(", ");
     alerts.push({
       level: "warning",
       satellite: "WMO SPI-3 Multi-Year",
-      msg: `🟠 WMO SPI-3: Chỉ số hạn hán tích lũy báo động (${monthsStr}) — Thiếu hụt nghiêm trọng lượng mưa so với nền lịch sử 20 năm!`
+      msg: `🟠 WMO SPI-3: Chỉ số hạn hán tích lũy báo động (${monthsStr}) — Thiếu hụt nghiêm trọng lượng mưa so với chuỗi lịch sử nhiều năm có nguồn!`
     });
   }
 
@@ -388,11 +312,13 @@ function detectEnvironmentalAnomalies(monthlyData, multiYearRainSeries = null) {
     alerts.push({
       level: "ok",
       satellite: "NASA Integrated",
-      msg: "🟢 Điều kiện thời tiết và ẩm độ đất thuận lợi cho sinh trưởng mùa vụ."
+      msg: "🟢 Không phát hiện cực đoan trong các biến khí hậu đã tải; chưa xác nhận an toàn canh tác tại ruộng."
     });
   }
 
   return {
+    spi_status: available ? "available" : "unavailable",
+    spi_reason: reason,
     spi_details: spiResults,
     multi_year_history_length: history.length,
     alerts
@@ -404,7 +330,7 @@ module.exports = {
   regularizedGammaP,
   fitGammaDistribution,
   cdfToStandardNormal,
-  generateHistoricalMonthlyRainfall,
+  validateRainfallHistory,
   calculateSPI,
   calculateMultiYearSPI,
   detectEnvironmentalAnomalies

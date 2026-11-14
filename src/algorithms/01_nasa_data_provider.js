@@ -1,207 +1,138 @@
-/**
- * ==============================================================================
- * THUẬT TOÁN 01: NASA DATA PROVIDER & SCIENTIFIC METADATA CONTRACT (NÂNG CẤP V2)
- * ==============================================================================
- * 
- * 1. BỐI CẢNH KHOA HỌC & HIỆU CHỈNH:
- *    - Đơn vị lượng mưa NASA POWER Climatology: Endpoint climatology của NASA trả về
- *      PRECTOTCORR tính theo mm/ngày (mm/day). Code trước đây bỏ qua việc nhân với số ngày
- *      trong tháng, dẫn đến lượng mưa bị chia nhỏ ~30 lần (ví dụ: 5mm/ngày bị hiểu thành 5mm/tháng)!
- *      Thuật toán V2 tự động chuyển đổi chuẩn xác sang mm/tháng dựa trên số ngày thực tế từng tháng.
- *    - Tích hợp bộ phân loại địa lý toàn cầu (geoClassifier): Phân định dứt khoát ranh giới giữa
- *      Biển/Vịnh ven bờ (như Vịnh Bắc Bộ, Vịnh Thái Lan), Băng đảo/Băng hà (Greenland, Nam Cực)
- *      và Đất liền nông nghiệp, thay vì phán đoán mơ hồ dựa trên -999.
- * 
- * 2. LOẠI DỮ LIỆU PHÙ HỢP:
- *    - Format: JSON API, GeoTIFF, NetCDF-4/HDF5.
- *    - Nguồn: NASA POWER Agroclimatology (MERRA-2 assimilation), SMAP L4, GPM IMERG.
- *    - Đơn vị chuẩn: T2M, TS (°C); PRECTOTCORR (mm/tháng); ALLSKY_SFC_SW_DWN (MJ/m²/ngày); GWET (0.0 - 1.0).
- */
-
-const https = require("https");
-const { classifyCoordinates } = require("../utils/geoClassifier");
-
-const DATA_CATALOG = {
-  T2M: {
-    source: "NASA POWER / GMAO MERRA-2",
-    product: "Agroclimatology 2m Air Temperature",
-    unit: "°C",
-    spatial_resolution: "0.5° x 0.5°",
-    processing_level: "Level-3 Assimilated Grid",
-    description: "Nhiệt độ không khí 2m tái phân tích toàn cầu MERRA-2"
-  },
-  TS: {
-    source: "NASA POWER / GMAO MERRA-2 Surface Model",
-    product: "Surface Skin Temperature (Thermal Indicator)",
-    unit: "°C",
-    spatial_resolution: "0.5° x 0.5°",
-    processing_level: "Level-3 Surface Grid",
-    description: "Nhiệt độ bề mặt đất bức xạ (Surface Skin Temperature)"
-  },
-  PRECTOTCORR: {
-    source: "NASA POWER / MERRA-2 & GPCP Gauge Calibration",
-    product: "Corrected Precipitation (Climatology)",
-    unit: "mm/month",
-    spatial_resolution: "0.5° x 0.5°",
-    processing_level: "Level-3 Gridded",
-    description: "Tổng lượng mưa tháng hiệu chỉnh bề mặt (đã nhân số ngày từng tháng)"
-  },
-  ALLSKY_SFC_SW_DWN: {
-    source: "NASA POWER / CERES & GEOS",
-    product: "Surface Solar Radiation",
-    unit: "MJ/m²/day",
-    spatial_resolution: "1.0° x 1.0°",
-    processing_level: "Level-3 Satellite / Model",
-    description: "Bức xạ mặt trời sóng ngắn chiếu tới bề mặt"
-  },
-  GWETTOP: {
-    source: "NASA POWER / MERRA-2 Catchment LSM",
-    product: "Surface Soil Wetness Fraction (0-5cm)",
-    unit: "dimensionless (0-1)",
-    spatial_resolution: "0.5° x 0.5°",
-    processing_level: "Level-4 Land Surface Model Output",
-    description: "Tỷ lệ ẩm đất tầng mặt (0 - 5cm, wetness fraction)"
-  },
-  GWETROOT: {
-    source: "NASA POWER / MERRA-2 Catchment LSM",
-    product: "Root Zone Soil Wetness Fraction (0-100cm)",
-    unit: "dimensionless (0-1)",
-    spatial_resolution: "0.5° x 0.5°",
-    processing_level: "Level-4 Land Surface Model Output",
-    description: "Tỷ lệ ẩm đất vùng rễ (0 - 100cm, wetness fraction)"
-  }
-};
-
-const MONTH_NAMES = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
-const DAYS_IN_MONTH = [31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
-function createScientificRecord(key, value, status = "observed", quality = "valid", extra = {}) {
-  const meta = DATA_CATALOG[key] || {
-    source: "NASA POWER / Model Assimilation", product: key, unit: "unknown",
-    spatial_resolution: "0.5° x 0.5°", processing_level: "Level-3", description: key
-  };
-
-  const confidence = status === "observed"
-    ? (quality === "valid" ? 0.90 : 0.70)
-    : status === "interpolated" ? 0.65 : 0.40;
-
-  return {
-    variable: key,
-    value: value,
-    unit: meta.unit,
-    source: meta.source,
-    product: meta.product,
-    spatial_resolution: meta.spatial_resolution,
-    processing_level: meta.processing_level,
-    description: meta.description,
-    status: status,
-    quality: quality,
-    climatology_period: extra.climatology_period || "NASA POWER 30-year Climatology Reference",
-    confidence: confidence,
-    ...extra
-  };
+// NASA POWER provider: climatological means and monthly history are separate products.
+const https = require('node:https');
+const { classifyCoordinates } = require('../utils/geoClassifier');
+const MONTH_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+const DAYS_IN_MONTH = [31,28.25,31,30,31,30,31,31,30,31,30,31];
+const DATA_CATALOG = Object.fromEntries([
+  ['T2M','2m air temperature','°C'], ['TS','Surface skin temperature','°C'],
+  ['T2M_MIN','2m minimum air temperature (climatological statistic)','°C'],
+  ['PRECTOTCORR','Bias-corrected precipitation','mm/month'],
+  ['ALLSKY_SFC_SW_DWN','Surface shortwave radiation','MJ/m²/day'],
+  ['GWETTOP','Surface soil wetness','dimensionless (0-1)'],
+  ['GWETROOT','Root zone soil wetness','dimensionless (0-1)']
+].map(([key,product,unit]) => [key, {
+  source: key === 'ALLSKY_SFC_SW_DWN' ? 'NASA POWER / CERES SYN1deg' : 'NASA POWER / MERRA-2',
+  product, unit,
+  spatial_resolution: key === 'ALLSKY_SFC_SW_DWN' ? '1° latitude x 1° longitude' : '0.5° latitude x 0.625° longitude (native MERRA-2)',
+  processing_level: key === 'ALLSKY_SFC_SW_DWN' ? 'Satellite-derived gridded climatology' : 'Reanalysis / land surface model climatology',
+  description: product,
+  limitations: 'Grid-cell climatological mean; not a field observation or a seasonal forecast. Soil wetness is not measured volumetric water content.'
+}]));
+function createScientificRecord(key, value, status = 'climatology', quality = 'valid', extra = {}) {
+  const meta = DATA_CATALOG[key] || {source:'Unknown',product:key,unit:'unknown'};
+  return {variable:key,value,...meta,status,quality,period:null,climatology_period:null,
+    confidence:null,confidence_note:'No calibrated probability of accuracy is available.',...extra};
 }
-
-/**
- * Lấy dữ liệu điểm từ NASA POWER API kèm kiểm tra địa lý toàn cầu
- */
-async function fetchNasaPointData(lat, lon, timeoutMs = 15000) {
-  // Bước 1: Kiểm tra vị trí địa lý bằng bộ phân loại Geo-Classifier
-  const geoCheck = classifyCoordinates(lat, lon);
-  if (!geoCheck.can_cultivate) {
-    return {
-      is_water: geoCheck.is_water,
-      is_ice: geoCheck.is_ice,
-      terrain_type: geoCheck.type,
-      message: geoCheck.message,
-      coordinates: { lat, lon }
-    };
-  }
-
-  const params = Object.keys(DATA_CATALOG).join(",");
-  const url = `https://power.larc.nasa.gov/api/temporal/climatology/point?parameters=${params}&community=AG&longitude=${lon.toFixed(4)}&latitude=${lat.toFixed(4)}&format=JSON`;
-
-  return new Promise((resolve, reject) => {
-    const req = https.get(url, { timeout: timeoutMs }, (res) => {
+function requestJson(url, timeoutMs = 15000) {
+  return new Promise((resolve,reject) => {
+    const req = https.get(url,{timeout:timeoutMs},res => {
       if (res.statusCode < 200 || res.statusCode >= 300) {
-        return reject(new Error(`NASA POWER API HTTP Error ${res.statusCode}: ${res.statusMessage}`));
+        res.resume(); reject(new Error(`NASA POWER HTTP ${res.statusCode}`)); return;
       }
-
-      let data = "";
-      res.on("data", chunk => data += chunk);
-      res.on("end", () => {
-        try {
-          const parsed = JSON.parse(data);
-          const rawParam = parsed?.properties?.parameter;
-          if (!rawParam) {
-            return reject(new Error("Phản hồi từ NASA không chứa trường parameter hợp lệ"));
-          }
-
-          const structured = {};
-          for (const key of Object.keys(DATA_CATALOG)) {
-            structured[key] = [];
-            for (let m = 0; m < 12; m++) {
-              const monthKey = MONTH_NAMES[m];
-              const padKey = String(m + 1).padStart(2, "0");
-              let rawVal = rawParam[key]?.[monthKey] ?? rawParam[key]?.[padKey] ?? rawParam[key]?.[String(m + 1)];
-
-              let val = Number(rawVal);
-              let status = "observed";
-              let quality = "valid";
-
-              // Sentinel value kiểm tra (-999, NaN)
-              if (rawVal === undefined || rawVal === null || isNaN(val) || val <= -900) {
-                status = "missing";
-                quality = "invalid";
-                val = null;
-              } else if (key === "PRECTOTCORR") {
-                // CHUYỂN ĐỔI CHUẨN XÁC: NASA Climatology PRECTOTCORR tính theo mm/day -> chuyển thành mm/month
-                val = Math.round(val * DAYS_IN_MONTH[m] * 10) / 10;
-              }
-
-              structured[key].push(createScientificRecord(key, val, status, quality, {
-                month: m + 1,
-                month_name: monthKey
-              }));
-            }
-          }
-
-          resolve({
-            is_water: false,
-            is_ice: false,
-            terrain_type: "LAND",
-            source: "NASA POWER API (Climatology)",
-            coordinates: { lat, lon },
-            data: structured
-          });
-        } catch (e) {
-          reject(new Error(`Lỗi parse dữ liệu NASA POWER: ${e.message}`));
-        }
-      });
+      let body = '';
+      res.on('data',chunk => { body += chunk; });
+      res.on('error',reject);
+      res.on('end',() => { try { resolve(JSON.parse(body)); } catch (e) { reject(e); } });
     });
-
-    req.on("error", (err) => reject(new Error(`Lỗi kết nối mạng NASA: ${err.message}`)));
-    req.on("timeout", () => {
-      req.destroy();
-      reject(new Error(`Kết nối đến NASA POWER API vượt quá thời gian chờ (${timeoutMs}ms)`));
-    });
+    req.on('error',reject);
+    req.on('timeout',() => req.destroy(new Error('NASA POWER request timed out')));
   });
 }
-
-module.exports = {
-  DATA_CATALOG,
-  MONTH_NAMES,
-  DAYS_IN_MONTH,
-  createScientificRecord,
-  fetchNasaPointData
-};
-
-// ─── Test thực thi ───
-if (require.main === module) {
-  console.log("=== KIỂM THỬ THUẬT TOÁN 01 (NÂNG CẤP V2) ===");
-  console.log("1. Thử tọa độ Vịnh Bắc Bộ (19.5308, 106.6433):");
-  fetchNasaPointData(19.5308, 106.6433).then(r => console.log("Kết quả:", r));
-
-  console.log("2. Thử tọa độ Greenland (76.1513, -42.3889):");
-  fetchNasaPointData(76.1513, -42.3889).then(r => console.log("Kết quả:", r));
+function validRaw(value) {
+  if (typeof value !== 'number' && !(typeof value === 'string' && value.trim())) return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n > -900 ? n : null;
 }
+// Read response units rather than assuming the same units for every POWER community.
+function convertValue(key,value,unit,days) {
+  const n = validRaw(value);
+  if (n === null) return null;
+  const u = String(unit || '').toLowerCase().replace(/\s/g,'');
+  if (key === 'PRECTOTCORR') {
+    if (['mm/day','mm/d'].includes(u)) return n * days;
+    if (['mm/month','mm'].includes(u)) return n;
+    throw new Error(`Unsupported precipitation units: ${unit}`);
+  }
+  if (key === 'ALLSKY_SFC_SW_DWN') {
+    if (u.includes('kw-hr') || u.includes('kwh')) return n * 3.6;
+    if (u.includes('mj')) return n;
+    if (u === 'w/m^2' || u === 'w/m2') return n * 0.0864;
+    throw new Error(`Unsupported radiation units: ${unit}`);
+  }
+  return n;
+}
+function parseClimatology(parsed) {
+  const raw = parsed?.properties?.parameter;
+  if (!raw) throw new Error('NASA POWER response has no parameters');
+  let period = parsed.header?.start && parsed.header?.end
+    ? {start:parsed.header.start,end:parsed.header.end} : null;
+  // Current climatology responses can put the reference period only in a message.
+  if(!period && Array.isArray(parsed.messages))for(const note of parsed.messages){
+    const m=String(note).match(/climatological period\s*\(([A-Za-z]+)\s+(\d{4})\s*[-–]\s*([A-Za-z]+)\s+(\d{4})\)/i);
+    if(m){
+      const first=MONTH_NAMES.indexOf(m[1].slice(0,3).toUpperCase())+1,last=MONTH_NAMES.indexOf(m[3].slice(0,3).toUpperCase())+1;
+      if(first && last){period={start:`${m[2]}-${String(first).padStart(2,'0')}`,end:`${m[4]}-${String(last).padStart(2,'0')}`,source:'NASA response message'};break;}
+    }
+  }
+  const data = {};
+  for (const key of Object.keys(DATA_CATALOG)) {
+    const unit = parsed.parameters?.[key]?.units;
+    data[key] = MONTH_NAMES.map((name,m) => {
+      const value = convertValue(key,raw[key]?.[name] ?? raw[key]?.[String(m+1).padStart(2,'0')],unit,DAYS_IN_MONTH[m]);
+      return createScientificRecord(key,value,value === null ? 'missing' : 'climatology',value === null ? 'invalid' : 'valid',{
+        month:m+1,month_name:name,period,climatology_period:period,
+        original_unit:unit || null,notes:parsed.messages || [],
+        underlying_status:key === 'ALLSKY_SFC_SW_DWN' ? 'satellite_derived' : 'reanalysis',
+        request_sources:parsed.header?.sources || []
+      });
+    });
+  }
+  const elevation = validRaw(parsed.geometry?.coordinates?.[2]);
+  return {source:'NASA POWER climatology',data,period,
+    grid_elevation:{value:elevation,unit:'m',status:elevation===null?'unavailable':'model_grid',
+      source:'NASA POWER response geometry',limitations:'Model grid elevation, not a surveyed field elevation.'}};
+}
+async function fetchNasaPointData(lat,lon,timeoutMs = 15000,request = requestJson) {
+  const geo = classifyCoordinates(lat,lon);
+  if (!geo.can_cultivate) return {is_water:geo.is_water,is_ice:geo.is_ice,message:geo.message};
+  const url = `https://power.larc.nasa.gov/api/temporal/climatology/point?parameters=${Object.keys(DATA_CATALOG).join(',')}&community=AG&longitude=${lon}&latitude=${lat}&format=JSON`;
+  return {...parseClimatology(await request(url,timeoutMs)),coordinates:{lat,lon}};
+}
+function parseMonthlyRainfall(parsed,startYear,endYear) {
+  const raw = parsed?.properties?.parameter?.PRECTOTCORR;
+  if (!raw) throw new Error('NASA monthly response has no precipitation');
+  const records = [];
+  for (let year=startYear;year<=endYear;year++) for(let month=1;month<=12;month++) {
+    const days = new Date(Date.UTC(year,month,0)).getUTCDate();
+    records.push({year,month,date:`${year}-${String(month).padStart(2,'0')}-01`,rain_mm:convertValue('PRECTOTCORR',raw[`${year}${String(month).padStart(2,'0')}`],parsed.parameters?.PRECTOTCORR?.units,days)});
+  }
+  return {records,source:'NASA POWER monthly PRECTOTCORR / MERRA-2',status:'reanalysis',unit:'mm/month',period:{start:startYear,end:endYear}};
+}
+async function fetchNasaMonthlyRainfall(lat,lon,startYear,endYear,timeoutMs = 15000,request = requestJson) {
+  const url = `https://power.larc.nasa.gov/api/temporal/monthly/point?parameters=PRECTOTCORR&community=AG&longitude=${lon}&latitude=${lat}&start=${startYear}&end=${endYear}&format=JSON`;
+  return parseMonthlyRainfall(await request(url,timeoutMs),startYear,endYear);
+}
+function parseDailyTemperature(parsed,startYear,endYear) {
+  const raw=parsed?.properties?.parameter;
+  if (!raw?.T2M_MIN) throw new Error('NASA daily response has no T2M_MIN');
+  for (const key of ['T2M_MIN','T2M']) {
+    const unit=parsed.parameters?.[key]?.units;
+    if (unit && !['c','°c','degc'].includes(unit.toLowerCase())) throw new Error(`Unsupported temperature units: ${unit}`);
+  }
+  const records=[];
+  for(let t=Date.UTC(startYear,0,1);t<Date.UTC(endYear+1,0,1);t+=86400000) {
+    const date=new Date(t).toISOString().slice(0,10),key=date.replaceAll('-','');
+    const minimum=validRaw(raw.T2M_MIN[key]),mean=validRaw(raw.T2M?.[key]);
+    records.push({date,year:Number(date.slice(0,4)),month:Number(date.slice(5,7)),
+      tmin_c:minimum!==null && minimum>=-100 && minimum<=65 ? minimum : null,
+      tmean_c:mean!==null && mean>=-100 && mean<=65 ? mean : null});
+  }
+  return {records,status:'reanalysis',source:'NASA POWER daily / MERRA-2',unit:'°C',
+    period:{start:`${startYear}-01-01`,end:`${endYear}-12-31`},time_standard:'LST',
+    limitations:'Historical grid-cell reanalysis; not a forecast or proof of frost/crop death at the field.'};
+}
+async function fetchNasaDailyTemperature(lat,lon,startYear,endYear,timeoutMs=15000,request=requestJson) {
+  const url=`https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M_MIN,T2M&community=AG&longitude=${lon}&latitude=${lat}&start=${startYear}0101&end=${endYear}1231&time-standard=LST&format=JSON`;
+  return parseDailyTemperature(await request(url,timeoutMs),startYear,endYear);
+}
+module.exports = {DATA_CATALOG,MONTH_NAMES,DAYS_IN_MONTH,createScientificRecord,requestJson,convertValue,parseClimatology,parseMonthlyRainfall,fetchNasaPointData,fetchNasaMonthlyRainfall,parseDailyTemperature,fetchNasaDailyTemperature};

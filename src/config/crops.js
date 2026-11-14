@@ -15,4 +15,32 @@ const SEASON_IDX = [
 ];
 const NASA_KEYS = ["T2M", "TS", "PRECTOTCORR", "ALLSKY_SFC_SW_DWN", "GWETTOP", "GWETROOT"];
 
-module.exports = { CROPS, CROP_KEYS, SEASON_IDX, NASA_KEYS };
+// Existing agronomic coefficients are project assumptions, not measurements or calibrated probabilities.
+const OBJECTIVE_VERSION = 'planning_rotation_v5';
+const SCORING_PARAMETERS = {
+  soil_base:50,soil_coefficient:1.8,water_base:60,water_coefficient:2.4,
+  suitability_weight:0.3,display_offset:40,display_scale:0.5,
+  transition_legume:15,transition_rice_repeat:-20,transition_after_fallow:8,
+  transition_fallow_repeat:-8,transition_other:2,
+};
+const CALENDAR = {id:'illustrative_four_month_blocks',months:SEASON_IDX,
+  labels:['T1–T4','T5–T8','T9–T12'],region_scope:'Illustrative planning only; no validated regional crop calendar',
+  assumptions:'Three full four-month blocks; no hemisphere-specific sowing dates, cultivar or irrigation management is inferred.',
+  locally_validated:false};
+const PARAMETER_REGISTRY = [
+  ...Object.entries(SCORING_PARAMETERS).map(([name,value])=>({name,value,unit:'heuristic planning score units',
+    source:'Existing project objective; display_offset/display_scale are an affine mapping of the theoretical [-40,160] score to [0,100]',
+    reference:null,region_scope:'No calibrated region',confidence:'uncalibrated',verified:false})),
+  ...Object.entries(CROPS).flatMap(([crop,p])=>['water','soil','profit','shield','drought_tol','heat_tol','flood_tol'].map(key=>({
+    name:`${crop}.${key}`,value:p[key],unit:'legacy heuristic units; not measured soil chemistry, water volume or currency',
+    source:'Existing project crop configuration',reference:null,region_scope:'No calibrated cultivar/region',verified:false,confidence:'uncalibrated'}))),
+  {name:'calendar',value:SEASON_IDX,unit:'zero-based calendar months',source:'Illustrative UI blocks',reference:null,
+    region_scope:CALENDAR.region_scope,verified:false,confidence:'unvalidated'},
+  {name:'rank_boundaries',value:{S:72,A:55,B:35},unit:'presentation score thresholds',source:'Existing project labels; infeasible/no-planting scenarios are C',
+    reference:null,region_scope:'Not agronomic success classes',verified:false,confidence:'uncalibrated'},
+  {name:'fuzzy_global_coefficients',value:{arid_season_rain_mm:35,arid_wetness:.20,skin_heat_start_c:35,heat_decline_per_c:.12,
+      heat_min_factor:.2,temperature_weight:.35,moisture_weight:.35,rain_weight:.30,limiting_base:.5,limiting_weight:.5},
+    unit:'Mixed units explicitly named in each key',source:'Existing experimental fuzzy model, not a verified FAO profile',
+    reference:null,region_scope:'No calibrated region or cultivar',verified:false,confidence:'uncalibrated'}
+];
+module.exports = { CROPS, CROP_KEYS, SEASON_IDX, NASA_KEYS, OBJECTIVE_VERSION, SCORING_PARAMETERS, PARAMETER_REGISTRY, CALENDAR };

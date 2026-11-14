@@ -2,7 +2,7 @@
  * ==============================================================================
  * THUẬT TOÁN 05: CLOUD MASKING & SCENE CLASSIFICATION (FMASK 4.0 & MULTI-SENSOR QA)
  * ==============================================================================
- * 
+ *
  * 1. BỐI CẢNH KHOA HỌC:
  *    Tách biệt riêng biệt 3 chuẩn mặt nạ chất lượng viễn thám hàng đầu thế giới:
  *    - USGS Landsat 8/9 Collection-2 QA_PIXEL bitmask.
@@ -79,22 +79,27 @@ function decodeMod09GAStateQA(qaInt16) {
   const cloudShadow = ((qaInt16 >> 2) & 0b1) === 1;
   const cirrus = ((qaInt16 >> 8) & 0b11) >= 1;
   const internalCloud = ((qaInt16 >> 10) & 0b1) === 1;
-  const snowIce = ((qaInt16 >> 12) & 0b1) === 1;
+  const snowIce = ((qaInt16 >> 12) & 0b1) === 1 || ((qaInt16 >> 15) & 1) === 1;
+  const adjacentCloud = ((qaInt16 >> 13) & 1) === 1;
+  const landWater = (qaInt16 >> 3) & 7;
+  const isWater = landWater !== 1; // MOD09: 001 is land; coast and all water classes are excluded conservatively.
 
   const isCloud = cloudState === 1 || cloudState === 2 || internalCloud;
-  const isClear = cloudState === 0 && !cloudShadow && !cirrus && !internalCloud;
+  const isClear = cloudState === 0 && !cloudShadow && !cirrus && !internalCloud && !adjacentCloud;
 
   return {
     sensor: "NASA MODIS MOD09GA StateQA",
     raw_code: qaInt16,
-    is_fill_nodata: cloudState === 3,
+    is_fill_nodata: qaInt16 === 65535,
+    quality_unknown: cloudState === 3,
     is_clear: isClear,
     is_cloud: isCloud,
     is_cloud_shadow: cloudShadow,
     is_cirrus: cirrus,
     is_snow: snowIce,
-    is_water: false,
-    usable_for_agriculture: isClear && !snowIce
+    is_water: isWater,
+    adjacent_cloud: adjacentCloud,
+    usable_for_agriculture: isClear && !snowIce && !isWater
   };
 }
 
@@ -184,10 +189,13 @@ function maskCloudByProduct(value, productType) {
     );
   }
   const type = productType.toUpperCase();
-  if (type.includes("LANDSAT")) return decodeLandsatQAPixel(value);
-  if (type.includes("MOD13")) return decodeMod13Q1SummaryQA(value);
-  if (type.includes("MOD09") || type.includes("MODIS")) return decodeMod09GAStateQA(value);
-  if (type.includes("SENTINEL") || type.includes("SCL")) return decodeSentinel2SCL(value);
+  const limits = {LANDSAT_C2:[0,65535],MOD13Q1:[-1,3],MOD09GA:[0,65535],SENTINEL2_SCL:[0,11]};
+  if (!limits[type]) throw new TypeError(`Unrecognized productType: ${productType}`);
+  if (!Number.isInteger(value) || value < limits[type][0] || value > limits[type][1]) throw new TypeError('Invalid or missing product QA value');
+  if (type === 'LANDSAT_C2') return decodeLandsatQAPixel(value);
+  if (type === 'MOD13Q1') return decodeMod13Q1SummaryQA(value);
+  if (type === 'MOD09GA') return decodeMod09GAStateQA(value);
+  if (type === 'SENTINEL2_SCL') return decodeSentinel2SCL(value);
 
   throw new TypeError(`Unrecognized productType: ${productType}`);
 }

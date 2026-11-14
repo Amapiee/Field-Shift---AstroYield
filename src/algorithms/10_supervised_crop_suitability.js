@@ -1,19 +1,7 @@
-/**
- * ==============================================================================
- * THUẬT TOÁN 10: SUPERVISED AGRO-DECISION RANDOM FOREST CLASSIFIER (V2)
- * ==============================================================================
- * 
- * 1. BỐI CẢNH KHOA HỌC & ỨNG DỤNG THỰC TẾ:
- *    - Để ứng dụng thực tế vào sản xuất nông nghiệp, mô hình Rừng Quyết Định Ngẫu Nhiên
- *      (Random Forest Ensemble) được huấn luyện trên ma trận đặc trưng khí hậu - thổ nhưỡng
- *      dựa trên cơ sở dữ liệu FAO GAEZ (Global Agro-Ecological Zones).
- *    - Đặc trưng đầu vào (7 chiều):
- *      $[T_{\text{mean}}, T_{\min}, T_{\max}, P_{\text{accum}}, \theta_{\text{root}}, Rad, NDVI]$
- *    - Nhãn phân loại:
- *      + 0: Thất thu hoàn toàn (Crop Failure / Infeasible do sương giá hoặc hạn hán)
- *      + 1: Sinh trưởng cận biên (Marginal Viability, cần can thiệp)
- *      + 2: Năng suất tối ưu (Optimal / High Yield)
- */
+// Experimental synthetic classifier; no GAEZ or independent field labels are bundled.
+// EXPERIMENTAL: synthetic examples; no field labels, geographic/time holdout or calibrated probabilities.
+const {seededRandom} = require('../utils/random');
+
 
 function calculateGini(labels) {
   if (labels.length === 0) return 0;
@@ -28,7 +16,8 @@ function calculateGini(labels) {
 }
 
 class DecisionTreeNode {
-  constructor(depth = 0, maxDepth = 4) {
+  constructor(depth = 0, maxDepth = 4, rng = seededRandom()) {
+    this.rng = rng;
     this.depth = depth;
     this.maxDepth = maxDepth;
     this.featureIdx = null;
@@ -63,7 +52,7 @@ class DecisionTreeNode {
     const mTry = Math.max(1, Math.floor(Math.sqrt(numFeatures)));
     const allIndices = Array.from({ length: numFeatures }, (_, i) => i);
     for (let i = allIndices.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(this.rng() * (i + 1));
       [allIndices[i], allIndices[j]] = [allIndices[j], allIndices[i]];
     }
     const candidateFeatures = allIndices.slice(0, mTry);
@@ -111,7 +100,7 @@ class DecisionTreeNode {
       }
     }
 
-    this.left = new DecisionTreeNode(this.depth + 1, this.maxDepth);
+    this.left = new DecisionTreeNode(this.depth + 1, this.maxDepth, this.rng);
     this.left.fit(leftX, leftY);
 
     this.right = new DecisionTreeNode(this.depth + 1, this.maxDepth);
@@ -131,25 +120,28 @@ class DecisionTreeNode {
 }
 
 class AgroRandomForestClassifier {
-  constructor(nTrees = 15, maxDepth = 4) {
+  constructor(nTrees = 15, maxDepth = 4, {seed = 42} = {}) {
+    this.seed = seed;
     this.nTrees = nTrees;
     this.maxDepth = maxDepth;
     this.trees = [];
   }
 
   fit(X, y) {
+    if (!X.length || X.length!==y.length || X.some(r=>r.length!==7 || !r.every(Number.isFinite))) throw new TypeError('Invalid seven-feature training data');
+    this.rng=seededRandom(this.seed);
     this.trees = [];
     const n = X.length;
 
     for (let t = 0; t < this.nTrees; t++) {
       const bootX = [], bootY = [];
       for (let i = 0; i < n; i++) {
-        const randIdx = Math.floor(Math.random() * n);
+        const randIdx = Math.floor(this.rng() * n);
         bootX.push(X[randIdx]);
         bootY.push(y[randIdx]);
       }
 
-      const tree = new DecisionTreeNode(0, this.maxDepth);
+      const tree = new DecisionTreeNode(0, this.maxDepth, this.rng);
       tree.fit(bootX, bootY);
       this.trees.push(tree);
     }
@@ -160,10 +152,11 @@ class AgroRandomForestClassifier {
     if (!Array.isArray(sampleFeatures) || sampleFeatures.length !== 7) {
       throw new TypeError(`predictViability: Expected sampleFeatures array of length 7, got ${sampleFeatures ? sampleFeatures.length : 0}`);
     }
-    if (sampleFeatures.some(v => typeof v !== "number" || isNaN(v))) {
+    if (sampleFeatures.some(v => !Number.isFinite(v))) {
       throw new RangeError("predictViability: sampleFeatures contains NaN or non-numeric values");
     }
 
+    if (!this.trees.length) throw new Error('Model is not fitted');
     const aggregated = { 0: 0, 1: 0, 2: 0 };
     for (const tree of this.trees) {
       const prob = tree.predictProba(sampleFeatures);
@@ -177,6 +170,9 @@ class AgroRandomForestClassifier {
     const viabilityScore = (aggregated[1] * 50 + aggregated[2] * 100);
 
     return {
+      experimental: true,
+      validation_status: 'No independent field validation; class vote fractions are not calibrated probabilities',
+      recommendation_allowed: false,
       viability_score: Math.round(viabilityScore * 10) / 10,
       failure_risk: Math.round(failureRisk * 100) / 100,
       optimal_probability: Math.round(optimalYield * 100) / 100,
@@ -191,64 +187,65 @@ class AgroRandomForestClassifier {
  * Xây dựng tập dữ liệu nông học mô phỏng (Synthetic Agro-Ecological Dataset)
  * Lưu ý: Dữ liệu mô phỏng cho mục đích kiểm thử phân loại, không phải năng suất thực địa đã đo lường.
  */
-function createGlobalAgroDataset(cropType = "Rice") {
+function createGlobalAgroDataset(cropType = "Rice", seed = 42) {
+  const rng = seededRandom(seed);
   // Features: [T_mean, T_min, T_max, P_accum, Soil_Moisture, Rad, NDVI]
   const X = [];
   const y = [];
 
   // 1. Nhóm vùng băng giá hàn đới (Polar/Cryosphere) -> Thất thu 100%
   for (let i = 0; i < 40; i++) {
-    const tMean = -30 + Math.random() * 25; // -30 to -5°C
+    const tMean = -30 + rng() * 25; // -30 to -5°C
     const tMin = tMean - 8;
     const tMax = tMean + 6;
-    const pAccum = 10 + Math.random() * 50;
-    const soil = 0.1 + Math.random() * 0.15;
-    const rad = 5 + Math.random() * 10;
-    const ndvi = 0.02 + Math.random() * 0.05;
+    const pAccum = 10 + rng() * 50;
+    const soil = 0.1 + rng() * 0.15;
+    const rad = 5 + rng() * 10;
+    const ndvi = 0.02 + rng() * 0.05;
     X.push([tMean, tMin, tMax, pAccum, soil, rad, ndvi]);
     y.push(0); // Thất thu hoàn toàn
   }
 
   // 2. Nhóm vùng sa mạc cực khô hạn (Hyper-Arid Desert) -> Thất thu 100%
   for (let i = 0; i < 40; i++) {
-    const tMean = 28 + Math.random() * 12; // 28 to 40°C
-    const tMin = 20 + Math.random() * 5;
-    const tMax = 42 + Math.random() * 8; // 42 to 50°C
-    const pAccum = Math.random() * 25;     // < 25mm
-    const soil = 0.08 + Math.random() * 0.10;
-    const rad = 22 + Math.random() * 8;
-    const ndvi = 0.05 + Math.random() * 0.05;
+    const tMean = 28 + rng() * 12; // 28 to 40°C
+    const tMin = 20 + rng() * 5;
+    const tMax = 42 + rng() * 8; // 42 to 50°C
+    const pAccum = rng() * 25;     // < 25mm
+    const soil = 0.08 + rng() * 0.10;
+    const rad = 22 + rng() * 8;
+    const ndvi = 0.05 + rng() * 0.05;
     X.push([tMean, tMin, tMax, pAccum, soil, rad, ndvi]);
     y.push(0); // Thất thu hoàn toàn
   }
 
   // 3. Nhóm vùng nhiệt đới / cận nhiệt đới phù hợp (Optimal Farming Zone)
   for (let i = 0; i < 60; i++) {
-    const tMean = 24 + Math.random() * 6; // 24 to 30°C
-    const tMin = 20 + Math.random() * 4;
-    const tMax = 31 + Math.random() * 3;
-    const pAccum = 350 + Math.random() * 500;
-    const soil = 0.60 + Math.random() * 0.25;
-    const rad = 16 + Math.random() * 5;
-    const ndvi = 0.60 + Math.random() * 0.25;
+    const tMean = 24 + rng() * 6; // 24 to 30°C
+    const tMin = 20 + rng() * 4;
+    const tMax = 31 + rng() * 3;
+    const pAccum = 350 + rng() * 500;
+    const soil = 0.60 + rng() * 0.25;
+    const rad = 16 + rng() * 5;
+    const ndvi = 0.60 + rng() * 0.25;
     X.push([tMean, tMin, tMax, pAccum, soil, rad, ndvi]);
     y.push(2); // Năng suất cao
   }
 
   // 4. Nhóm cận biên (Marginal Zone)
   for (let i = 0; i < 40; i++) {
-    const tMean = 18 + Math.random() * 5;
-    const tMin = 13 + Math.random() * 3;
-    const tMax = 28 + Math.random() * 4;
-    const pAccum = 150 + Math.random() * 150;
-    const soil = 0.35 + Math.random() * 0.20;
-    const rad = 14 + Math.random() * 4;
-    const ndvi = 0.35 + Math.random() * 0.20;
+    const tMean = 18 + rng() * 5;
+    const tMin = 13 + rng() * 3;
+    const tMax = 28 + rng() * 4;
+    const pAccum = 150 + rng() * 150;
+    const soil = 0.35 + rng() * 0.20;
+    const rad = 14 + rng() * 4;
+    const ndvi = 0.35 + rng() * 0.20;
     X.push([tMean, tMin, tMax, pAccum, soil, rad, ndvi]);
     y.push(1); // Cận biên
   }
 
-  return { X, y };
+  return { X, y, metadata:{status:'synthetic',crop_specific:false,seed,validation:'No field labels; test data only'} };
 }
 
 module.exports = {
@@ -260,7 +257,7 @@ module.exports = {
 
 // ─── Test thực thi ───
 if (require.main === module) {
-  console.log("=== KIỂM THỬ THUẬT TOÁN 10 (PRODUCTION RANDOM FOREST V2) ===");
+  console.log("=== KIỂM THỬ THUẬT TOÁN 10 (EXPERIMENTAL SYNTHETIC RANDOM FOREST) ===");
   const { X, y } = createGlobalAgroDataset("Rice");
   const rf = new AgroRandomForestClassifier(20, 4);
   rf.fit(X, y);

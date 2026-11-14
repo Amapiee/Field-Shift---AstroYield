@@ -1,19 +1,4 @@
-/**
- * ==============================================================================
- * THUẬT TOÁN 14: SCIENTIFIC VALIDATION & MULTI-SITE BENCHMARKING (V2)
- * ==============================================================================
- * 
- * 1. BỐI CẢNH KHOA HỌC & ĐỘ TIN CẬY:
- *    - Quy trình thẩm định khoa học V2 thực hiện kiểm thử tự động trên 5 địa điểm thực nghiệm
- *      đại diện cho các vùng địa hình & khí hậu toàn cầu cực đoan:
- *      1. Vịnh Bắc Bộ (Ocean): Tọa độ (19.5308, 106.6433) -> Phải phát hiện đúng là BIỂN.
- *      2. Băng đảo Greenland (Cryosphere): Tọa độ (76.1513, -42.3889) -> Phải phát hiện đúng BĂNG HÀ.
- *      3. Sa mạc Sahara (Hyper-Arid): Tọa độ (24.5, 25.0) -> Cảnh báo hoang mạc, không cho điểm cao.
- *      4. Đồng bằng Sông Cửu Long (Tropical Wetland): Tọa độ (10.04, 105.78) -> Khả thi cao.
- *      5. Vành đai Ngô Iowa (Temperate Corn Belt): Tọa độ (41.58, -93.62) -> Tối ưu Ngô/Đậu.
- *    - Đo lường sai số RMSE, MAE, Quantum Optimality Gap và tính bất biến ranh giới.
- */
-
+// Software consistency checks and error metrics. Geographic fixtures are not agronomic ground truth.
 const { classifyCoordinates } = require("../utils/geoClassifier");
 const { computeCropSeasonSuitability } = require("./11_crop_suitability_fuzzy_ecocrop");
 
@@ -26,8 +11,8 @@ function calculateRMSE(actual, predicted) {
   }
   let sumSq = 0;
   for (let i = 0; i < actual.length; i++) {
-    const a = Number(actual[i]), p = Number(predicted[i]);
-    if (isNaN(a) || isNaN(p)) throw new TypeError(`Element at index ${i} is not a valid number`);
+    const a = actual[i], p = predicted[i];
+    if (!Number.isFinite(a) || !Number.isFinite(p)) throw new TypeError(`Element at index ${i} is not a valid number`);
     sumSq += Math.pow(a - p, 2);
   }
   return Math.round(Math.sqrt(sumSq / actual.length) * 1000) / 1000;
@@ -42,8 +27,8 @@ function calculateMAE(actual, predicted) {
   }
   let sumAbs = 0;
   for (let i = 0; i < actual.length; i++) {
-    const a = Number(actual[i]), p = Number(predicted[i]);
-    if (isNaN(a) || isNaN(p)) throw new TypeError(`Element at index ${i} is not a valid number`);
+    const a = actual[i], p = predicted[i];
+    if (!Number.isFinite(a) || !Number.isFinite(p)) throw new TypeError(`Element at index ${i} is not a valid number`);
     sumAbs += Math.abs(a - p);
   }
   return Math.round((sumAbs / actual.length) * 1000) / 1000;
@@ -142,7 +127,36 @@ function runSystemRobustnessCheck() {
   };
 }
 
+function benchmarkQAOA(configurations,{seeds=[1,7,42,99,2026],shots=1024,max_runtime_ms=3000}={}) {
+  const optimizer=require('./13_crop_rotation_optimization_qaoa_milp');
+  if(!Array.isArray(configurations) || !configurations.length || configurations.length>10 || !seeds.length || seeds.length>20)
+    throw new RangeError('Benchmark requires 1–10 configurations and 1–20 seeds');
+  const runs=[];
+  for(const {id,data,weights={soil:.33,water:.33,profit:.34}} of configurations){
+    const envs=optimizer.buildSeasonEnvironments(data),exact=optimizer.solveClassicalExactOptimizer(envs,weights);
+    for(const seed of seeds){
+      const q=optimizer.solveQuantumQAOA(envs,weights,exact,{seed,shots,max_runtime_ms});
+      runs.push({configuration:id,seed,shots:q.shots,objective_version:q.objective_version || exact.objective_version,
+        exact_objective:exact.best_score,sampled_objective:q.fallback_used?null:q.objective_score,
+        gap_pct:q.optimality_gap_pct,expected_energy:q.expected_energy ?? null,initial_expected_energy:q.initial_expected_energy ?? null,
+        runtime_ms:q.runtime_ms,exact_runtime_ms:exact.runtime_ms,feasibility_rate_pct:q.feasibility_rate_pct,
+        fallback_used:q.fallback_used,status:q.status,hardware_executed:false});
+    }
+  }
+  const distribution=key=>{
+    const values=runs.map(r=>r[key]).filter(Number.isFinite).sort((a,b)=>a-b);
+    if(!values.length)return null;
+    return {count:values.length,min:values[0],median:values[Math.floor(values.length/2)],max:values.at(-1),
+      mean:values.reduce((a,b)=>a+b,0)/values.length,values};
+  };
+  return {kind:'bounded_offline_simulator_benchmark',runs,distributions:{gap_pct:distribution('gap_pct'),
+    runtime_ms:distribution('runtime_ms'),expected_energy:distribution('expected_energy')},
+    fallback_count:runs.filter(r=>r.fallback_used).length,quantum_advantage_claimed:false,
+    reference_usage:'Exact exhaustive search used only for gap/reference and explicit fallback; never to select angles or a sampled candidate.'};
+}
+
 module.exports = {
+  benchmarkQAOA,
   calculateRMSE,
   calculateMAE,
   runMultiSiteBenchmark,

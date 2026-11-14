@@ -1,19 +1,20 @@
+let analysisInFlight = false;
 // ─── Loading Steps ─────────────────────────────────────────────────────────────
 const LOAD_STEPS = [
   "🌊 Verifying farm location & terrain boundaries…",
   "📡 Connecting to NASA POWER Agroclimatology API…",
-  "💧 Loading MERRA-2 Catchment Land Surface Model…",
-  "🌧️ Processing GPCP-calibrated precipitation…",
+  "💧 Loading MERRA-2 Catchment soil wetness…",
+  "🌧️ Processing POWER corrected precipitation…",
   "🌡️ Computing surface thermal skin index (TS)…",
   "🌿 Deriving biophysical vegetation proxy (NDVI/ESI)…",
   "⚛️ Initializing Statevector QAOA simulator…",
-  "🔮 Running 18-qubit QAOA & classical benchmark…",
+  "🔮 Running experimental QAOA simulation & exact classical comparison…",
   "📊 Scoring rotation strategies with TOPSIS…",
 ];
 let stepIdx = 0, stepTimer = null;
 function startLoadingSteps(title) {
   stepIdx = 0;
-  document.getElementById("loading-title").textContent = title || "⚛️ QUANTUM ANALYSIS RUNNING…";
+  document.getElementById("loading-title").textContent = title || "KỊCH BẢN LẬP KẾ HOẠCH ĐANG CHẠY…";
   document.getElementById("loading-step").textContent = LOAD_STEPS[0];
   stepTimer = setInterval(() => {
     stepIdx = (stepIdx + 1) % LOAD_STEPS.length;
@@ -22,88 +23,29 @@ function startLoadingSteps(title) {
 }
 function stopLoadingSteps() { if (stepTimer) clearInterval(stepTimer); }
 
-// ─── Bộ Phân Loại Địa Lý Client-Side (Nhanh & Đồng Bộ Chuẩn Xác với Backend) ──
-function isPointInPolyClient(point, polygon) {
-  const [lat, lon] = point;
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const [latI, lonI] = polygon[i];
-    const [latJ, lonJ] = polygon[j];
-    const intersect = ((lonI > lon) !== (lonJ > lon)) &&
-      (lat < (latJ - latI) * (lon - lonI) / (lonJ - lonI) + latI);
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
-
-const GULF_OF_TONKIN_CLIENT = [
-  // Bờ biển phía Tây: Theo mép nước biển Việt Nam từ Quảng Trị lên Móng Cái
-  [17.0, 107.25], [17.5, 106.65], [18.0, 106.45], [18.3, 106.10],
-  [18.7, 105.82], [19.2, 105.75], [19.5, 105.86], [19.8, 105.95],
-  [20.0, 106.12], [20.15, 106.40], [20.28, 106.60], [20.38, 106.64],
-  [20.55, 106.65], [20.70, 106.83], [20.80, 106.95], [20.73, 107.08],
-  [20.95, 107.12], [21.05, 107.42], [21.25, 107.65], [21.49, 108.02],
-  // Bờ biển phía Bắc & Đông: Nam Trung Quốc & Đảo Hải Nam
-  [21.8, 108.6],  [21.5, 109.2],  [20.5, 109.8],  [20.1, 109.7],
-  [19.3, 108.6],  [18.2, 108.7],  [17.0, 107.6]
-];
-
-const GREENLAND_CLIENT = [
-  [59.5, -43.5], [65.0, -39.0], [70.0, -22.0], [76.0, -18.0],
-  [82.0, -25.0], [83.8, -35.0], [82.0, -50.0], [78.0, -70.0],
-  [76.0, -68.0], [70.0, -55.0], [65.0, -52.0], [60.0, -46.0]
-];
-
-function classifyClientLocation(lat, lon) {
-  // 1. Greenland Ice Sheet
-  if (lat >= 59.5 && lat <= 84.0 && lon >= -75.0 && lon <= -15.0) {
-    if (isPointInPolyClient([lat, lon], GREENLAND_CLIENT)) {
-      return {
-        is_ice: true, is_water: false,
-        message: "🧊 Tọa độ thuộc dải băng tuyết vĩnh cửu Greenland. Nhiệt độ quanh năm đóng băng, không có tầng đất trồng trọt!"
-      };
-    }
-  }
-  // 2. Nam Cực (Antarctica)
-  if (lat <= -60.0) {
-    return {
-      is_ice: true, is_water: false,
-      message: "🧊 Tọa độ thuộc lục địa băng Nam Cực. Điều kiện băng giá vĩnh cửu không thể canh tác!"
-    };
-  }
-  // 3. Vịnh Bắc Bộ (Gulf of Tonkin) - Kiểm tra chuẩn xác theo đa giác bờ biển
-  if (lat >= 17.0 && lat <= 22.0 && lon >= 105.7 && lon <= 110.0) {
-    if (isPointInPolyClient([lat, lon], GULF_OF_TONKIN_CLIENT)) {
-      return {
-        is_water: true, is_ice: false,
-        message: "🌊 Tọa độ nằm trên vùng biển Vịnh Bắc Bộ. Vui lòng chọn vị trí trên đất liền để canh tác nông nghiệp!"
-      };
-    }
-  }
-  // 4. Các đại dương mở chính
-  if ((lat >= -50 && lat <= 50 && lon >= -175 && lon <= -130) || // Thái Bình Dương
-      (lat >= -45 && lat <= 55 && lon >= -45 && lon <= -20)   || // Đại Tây Dương
-      (lat >= -50 && lat <= 10 && lon >= 60 && lon <= 90)) {    // Ấn Độ Dương
-    return {
-      is_water: true, is_ice: false,
-      message: "🌊 Tọa độ nằm ngoài đại dương/vùng biển mở. Vệ tinh nông nghiệp SMAP/GPM không hỗ trợ vùng nước!"
-    };
-  }
-
-  return { is_water: false, is_ice: false };
-}
-
 // ─── Hàm Reset Giao Diện Khi Click Ra Biển Hoặc Băng Tuyết ───────────────────
 function resetDashboardUI() {
+  if(typeof setAnalysisMessage==='function')setAnalysisMessage('');
+  for(const id of ['source-reason','solver-details']){
+    const el=document.getElementById(id);if(el)el.textContent='';
+  }
+  for(const id of ['cold-risk-summary','terrain-summary']){
+    const el=document.getElementById(id);if(el){el.textContent='Chưa có dữ liệu.';el.title='';}
+  }
+  for(const id of ['cold-risk-months','user-season-risks','q-season-risks']){
+    const el=document.getElementById(id);if(el)el.innerHTML='';
+  }
+  chartTemp = destroyChart(chartTemp); chartRain = destroyChart(chartRain);
+  chartNdvi = destroyChart(chartNdvi); chartRadar = destroyChart(chartRadar);
   const matchScore = document.getElementById("match-score");
   if (matchScore) matchScore.textContent = "-%";
-  
+
   const matchDesc = document.getElementById("match-desc");
   if (matchDesc) matchDesc.textContent = "-";
 
   const userTags = document.getElementById("user-tags");
   if (userTags) userTags.innerHTML = "-";
-  
+
   const userRank = document.getElementById("user-rank");
   if (userRank) {
     userRank.textContent = "RANK -";
@@ -112,13 +54,13 @@ function resetDashboardUI() {
 
   const qTags = document.getElementById("q-tags");
   if (qTags) qTags.innerHTML = "-";
-  
+
   const qRank = document.getElementById("q-rank");
   if (qRank) {
     qRank.textContent = "RANK -";
     qRank.className = "rank-chip";
   }
-  
+
   const qMethod = document.getElementById("q-method");
   if (qMethod) qMethod.textContent = "-";
 
@@ -137,13 +79,13 @@ function resetDashboardUI() {
     }
   };
 
-  resetHPBar("user-hp-soil", "🌱 Soil & Nitrogen HP");
-  resetHPBar("user-hp-water", "💧 Water Budget HP");
-  resetHPBar("user-hp-profit", "💰 Economic HP");
-  
-  resetHPBar("q-hp-soil", "🌱 Soil & Nitrogen HP");
-  resetHPBar("q-hp-water", "💧 Water Budget HP");
-  resetHPBar("q-hp-profit", "💰 Economic HP");
+  resetHPBar("user-hp-soil", "Điểm đất (heuristic)");
+  resetHPBar("user-hp-water", "Điểm nước (heuristic)");
+  resetHPBar("user-hp-profit", "Điểm lợi ích (heuristic)");
+
+  resetHPBar("q-hp-soil", "Điểm đất (heuristic)");
+  resetHPBar("q-hp-water", "Điểm nước (heuristic)");
+  resetHPBar("q-hp-profit", "Điểm lợi ích (heuristic)");
 
   const alertsWrap = document.getElementById("alerts-wrap");
   if (alertsWrap) alertsWrap.style.display = "none";
@@ -151,93 +93,101 @@ function resetDashboardUI() {
   if (alertsList) alertsList.innerHTML = "";
 
   const satIds = [
-    "sv-temp", "sv-temp-rng", "sv-gwet", "sv-gwet-sub", 
+    "sv-temp", "sv-temp-rng", "sv-gwet", "sv-gwet-sub",
     "sv-rain", "sv-rain-sub", "sv-ts", "sv-esi", "sv-ndvi", "sv-ndvi-sub"
   ];
   satIds.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = "-";
   });
-  
+
   const sourceBadge = document.getElementById("data-source-badge");
-  if (sourceBadge) sourceBadge.textContent = "Source: -";
+  if (sourceBadge) { sourceBadge.textContent = "Source: -"; sourceBadge.title = ""; }
+  for(const row of document.querySelectorAll('.sat-row')){
+    const desc=row.querySelector('.sat-desc');if(desc)desc.textContent='Chưa có dữ liệu tại điểm chọn.';
+    row.title='';
+  }
 }
 
 // ─── Main Analysis Call ────────────────────────────────────────────────────────
 async function runAnalysis() {
-  farmLat = parseFloat(document.getElementById("inp-lat").value) || farmLat;
-  farmLon = parseFloat(document.getElementById("inp-lon").value) || farmLon;
-  placeMarker(farmLat, farmLon);
-  map.flyTo([farmLat, farmLon], Math.max(map.getZoom(), 7), { duration: 0.8 });
-
-  // 1. Kiểm tra nhanh địa lý Client-side
-  const fastCheck = classifyClientLocation(farmLat, farmLon);
-  if (fastCheck.is_water) {
-    if (typeof showWaterAlert === 'function') showWaterAlert(fastCheck.message);
+  if(analysisInFlight)return;
+  const value=id=>document.getElementById(id)?.value ?? '';
+  const latText=value('inp-lat').trim(),lonText=value('inp-lon').trim();
+  const inputLat=Number(latText),inputLon=Number(lonText);
+  if(!latText || !lonText || !Number.isFinite(inputLat) || !Number.isFinite(inputLon) || Math.abs(inputLat)>90 || Math.abs(inputLon)>180){
+    alert('Vui lòng nhập vĩ độ [-90,90] và kinh độ [-180,180] hợp lệ.');return;
+  }
+  const lat=Number(inputLat.toFixed(4)),lon=Number(inputLon.toFixed(4));
+  farmLat=lat;farmLon=lon;placeMarker(lat,lon);
+  map.flyTo([lat,lon],Math.max(map.getZoom(),7),{duration:.8});
+  const geo=typeof cachedLocation==='function'?cachedLocation(lat,lon):null;
+  if(geo?.is_water || geo?.is_ice || geo?.requires_verification){
     resetDashboardUI();
+    if(geo.is_ice && typeof showIceAlert==='function')showIceAlert(geo.message);
+    else if(geo.requires_verification && typeof showCoastalAlert==='function')showCoastalAlert(geo.message);
+    else if(typeof showWaterAlert==='function')showWaterAlert(geo.message);
+    if(typeof setAnalysisMessage==='function')setAnalysisMessage(geo.message);
     return;
   }
-  if (fastCheck.is_ice) {
-    if (typeof showIceAlert === 'function') showIceAlert(fastCheck.message);
-    else if (typeof showWaterAlert === 'function') showWaterAlert(fastCheck.message);
+  const inputs=['inp-lat','inp-lon','sl-soil','sl-water','sl-profit','crop-s1','crop-s2','crop-s3'];
+  const snapshot=inputs.map(value);
+  const selection=typeof locationSelection==='number'?locationSelection:null;
+  const current=()=>inputs.every((id,i)=>value(id)===snapshot[i]) && farmLat===lat && farmLon===lon &&
+    (selection===null || selection===locationSelection);
+  const payload={lat,lon,w_soil:Number(value('sl-soil')),w_water:Number(value('sl-water')),w_profit:Number(value('sl-profit')),
+    user_crops:['crop-s1','crop-s2','crop-s3'].map(value)};
+  analysisInFlight=true;
+  const controller=typeof AbortController==='function'?new AbortController():null;
+  let timedOut=false,deadline;
+  try{
     resetDashboardUI();
-    return;
-  }
-
-  document.getElementById("loading").classList.add("show");
-  document.getElementById("btn-run").disabled = true;
-  startLoadingSteps();
-
-  try {
-    if (typeof closeWaterAlert === 'function') closeWaterAlert();
-
-    const payload = {
-      lat:      farmLat,
-      lon:      farmLon,
-      w_soil:   parseFloat(document.getElementById("sl-soil").value),
-      w_water:  parseFloat(document.getElementById("sl-water").value),
-      w_profit: parseFloat(document.getElementById("sl-profit").value),
-      user_crops: [
-        document.getElementById("crop-s1").value,
-        document.getElementById("crop-s2").value,
-        document.getElementById("crop-s3").value,
-      ],
-    };
-
-    const res  = await fetch("/api/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-
-    stopLoadingSteps();
-    document.getElementById("loading").classList.remove("show");
-    document.getElementById("btn-run").disabled = false;
-
-    if (data.ok) {
-      if (typeof updateUI === 'function') updateUI(data);
-    } else if (data.is_water) {
-      if (typeof showWaterAlert === 'function') showWaterAlert(data.error);
-      resetDashboardUI(); 
-    } else if (data.is_ice) {
-      if (typeof showIceAlert === 'function') showIceAlert(data.error);
-      else if (typeof showWaterAlert === 'function') showWaterAlert(data.error);
-      resetDashboardUI();
-    } else {
-      alert("⚠️ " + (data.error || "Server error occurred"));
+    document.getElementById('loading')?.classList.add('show');
+    const button=document.getElementById('btn-run');if(button)button.disabled=true;
+    startLoadingSteps();
+    if(typeof closeWaterAlert==='function')closeWaterAlert();
+    deadline=setTimeout(()=>{timedOut=true;controller?.abort();},60000);
+    const response=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload),...(controller?{signal:controller.signal}:{})});
+    const data=await response.json();
+    if(!current()){
+      document.getElementById('match-desc').textContent='Vị trí hoặc lựa chọn đã thay đổi; hãy phân tích lại.';return;
     }
-  } catch (err) {
-    stopLoadingSteps();
-    document.getElementById("loading").classList.remove("show");
-    document.getElementById("btn-run").disabled = false;
-    alert("🌐 Network error: " + err.message + "\n\nMake sure the Node server is running (npm start, port 3000).");
+    if(!data || typeof data!=='object')throw new Error('Phản hồi API không hợp lệ.');
+    if(data.ok && (data.contract_version!=='terrain-v2-objective-v5' || !data.objective_version || !data.scenarios?.classical))
+      throw new Error(typeof RESTART_MESSAGE==='string'?RESTART_MESSAGE:'Backend đang chạy phiên bản cũ. Dừng server bằng Ctrl+C, chạy lại npm start rồi nhấn Ctrl+F5.');
+    if(data.ok && response.ok!==false){if(typeof updateUI==='function')updateUI(data);}
+    else{
+      resetDashboardUI();
+      document.getElementById('data-source-badge').textContent='Source: '+(data.source || 'Nguồn chưa khả dụng')+' · '+(data.data_mode || data.source_status || 'unavailable')+' · Không có khuyến nghị';
+      document.getElementById('match-desc').textContent=data.error || data.reason || 'Không có đủ dữ liệu.';
+      if(typeof renderColdRisk==='function')renderColdRisk(data);
+      if(typeof renderAlerts==='function')renderAlerts(data.alerts || []);
+      const reason=document.getElementById('source-reason');if(reason)reason.textContent=data.reason || '';
+      const terrainMessage=data.terrain?.high_elevation?' Địa hình cao khoảng '+Math.round(data.terrain.site_elevation_m)+' m; cần kiểm tra rét và tuyết tại điểm.':'';
+      if(typeof setAnalysisMessage==='function')setAnalysisMessage((data.error || 'Không có đủ dữ liệu.')+terrainMessage);
+      if(data.is_ice && typeof showIceAlert==='function')showIceAlert(data.error);
+      else if(data.is_water && typeof showWaterAlert==='function')showWaterAlert(data.error);
+      else if(data.location?.requires_verification && typeof showCoastalAlert==='function')showCoastalAlert(data.error);
+    }
+  }catch(error){
+    if(!current())return;
+    resetDashboardUI();document.getElementById('data-source-badge').textContent='Source: unavailable';
+    const message=timedOut?'Phân tích quá thời gian chờ 60 giây; vui lòng thử lại.':'Không thể tải phân tích: '+error.message;
+    document.getElementById('match-desc').textContent=message;
+    if(typeof setAnalysisMessage==='function')setAnalysisMessage(message);
+  }finally{
+    if(typeof clearTimeout==='function')clearTimeout(deadline);
+    stopLoadingSteps();document.getElementById('loading')?.classList.remove('show');
+    const button=document.getElementById('btn-run');if(button)button.disabled=false;
+    analysisInFlight=false;
   }
 }
 
 // Enter key on main page (not inside inputs) triggers analysis
 document.addEventListener("keydown", e => {
   if (e.key === "Enter" && !["INPUT","SELECT","TEXTAREA"].includes(e.target.tagName)) {
+    e.preventDefault();
     runAnalysis();
   }
 });

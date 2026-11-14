@@ -1,23 +1,10 @@
-/**
- * ==============================================================================
- * THUẬT TOÁN 11: CONTINUOUS CROP SUITABILITY — FAO ECOCROP & FUZZY LOGIC (HIỆU CHỈNH V2)
- * ==============================================================================
- * 
- * 1. BỐI CẢNH KHOA HỌC & HIỆU CHỈNH CỐT LÕI:
- *    - Khắc phục lỗ hổng sương giá (Cold Kill) & Sa mạc (Arid Kill):
- *      Nếu nhiệt độ trung bình mùa vụ rơi xuống dưới ngưỡng sinh tồn tuyệt đối (như Greenland,
- *      Bắc Cực quanh năm âm độ, hoặc vùng núi tuyết), điểm thích ứng nông học BẮT BUỘC PHẢI VỀ 0.
- *      Không một loại cây trồng nhiệt đới hay ôn đới nào (Lúa, Đậu tương, Ngô, Rau) có thể
- *      sống sót trong điều kiện đóng băng vĩnh cửu.
- *    - Tương tự, nếu lượng mưa tích lũy cả vụ dưới 30mm và đất khô dưới điểm héo vĩnh viễn (PWP),
- *      cây trồng chết héo nếu không có hệ thống thủy lợi $\implies \text{Suitability} = 0$.
- */
-
+// Experimental fuzzy crop suitability inspired by EcoCrop. Exact thresholds are project heuristics.
+// is_lethal means excluded by this model, not experimentally proven crop mortality.
 const SCIENTIFIC_CROP_PROFILES = {
   Rice: {
     scientific_name: "Oryza sativa (Lúa nước)",
-    fao_ecocrop_code: 1530,
-    source_reference: "FAO EcoCrop Database & IRRI Rice Knowledge Bank",
+    fao_ecocrop_code: null,
+    source_reference: "Project heuristic; exact thresholds unverified",
     water_regime_assumption: "Lowland irrigated / High rainfed",
     parameter_units: { temp: "°C", rain: "mm/season (4 months)", soil_moisture: "GWETROOT fraction (0-1)" },
     temp_limits: { kill_min: 12.0, opt_min: 22.0, opt_max: 32.0, kill_max: 42.0 },
@@ -31,8 +18,8 @@ const SCIENTIFIC_CROP_PROFILES = {
   },
   Soybean: {
     scientific_name: "Glycine max (Đậu tương)",
-    fao_ecocrop_code: 1140,
-    source_reference: "FAO EcoCrop Database & USDA Soybean Production Guide",
+    fao_ecocrop_code: null,
+    source_reference: "Project heuristic; exact thresholds unverified",
     water_regime_assumption: "Rainfed / Moderate supplemental irrigation",
     parameter_units: { temp: "°C", rain: "mm/season (4 months)", soil_moisture: "GWETROOT fraction (0-1)" },
     temp_limits: { kill_min: 8.0, opt_min: 20.0, opt_max: 30.0, kill_max: 40.0 },
@@ -46,8 +33,8 @@ const SCIENTIFIC_CROP_PROFILES = {
   },
   Peanut: {
     scientific_name: "Arachis hypogaea (Lạc/Đậu phộng)",
-    fao_ecocrop_code: 480,
-    source_reference: "FAO EcoCrop Database & ICRISAT Groundnut Compendium",
+    fao_ecocrop_code: null,
+    source_reference: "Project heuristic; exact thresholds unverified",
     water_regime_assumption: "Semi-arid rainfed / Light sandy loam",
     parameter_units: { temp: "°C", rain: "mm/season (4 months)", soil_moisture: "GWETROOT fraction (0-1)" },
     temp_limits: { kill_min: 10.0, opt_min: 22.0, opt_max: 32.0, kill_max: 42.0 },
@@ -61,8 +48,8 @@ const SCIENTIFIC_CROP_PROFILES = {
   },
   Maize: {
     scientific_name: "Zea mays (Ngô)",
-    fao_ecocrop_code: 2240,
-    source_reference: "FAO EcoCrop Database & CIMMYT Maize Agronomy",
+    fao_ecocrop_code: null,
+    source_reference: "Project heuristic; exact thresholds unverified",
     water_regime_assumption: "Upland rainfed / Sub-surface irrigation",
     parameter_units: { temp: "°C", rain: "mm/season (4 months)", soil_moisture: "GWETROOT fraction (0-1)" },
     temp_limits: { kill_min: 8.0, opt_min: 18.0, opt_max: 30.0, kill_max: 42.0 },
@@ -76,8 +63,8 @@ const SCIENTIFIC_CROP_PROFILES = {
   },
   Veggies: {
     scientific_name: "Vegetable complex (Rau màu ngắn ngày)",
-    fao_ecocrop_code: 3000,
-    source_reference: "AVRDC World Vegetable Center Technical Guidelines",
+    fao_ecocrop_code: null,
+    source_reference: "Project heuristic; exact thresholds unverified",
     water_regime_assumption: "Intensive bed / High frequency drip irrigation",
     parameter_units: { temp: "°C", rain: "mm/season (4 months)", soil_moisture: "GWETROOT fraction (0-1)" },
     temp_limits: { kill_min: 5.0, opt_min: 16.0, opt_max: 28.0, kill_max: 38.0 },
@@ -91,8 +78,8 @@ const SCIENTIFIC_CROP_PROFILES = {
   },
   Fallow: {
     scientific_name: "Cover crop / Fallow (Bỏ trống / Phục hồi đất)",
-    fao_ecocrop_code: 9999,
-    source_reference: "Agronomic standard practice for soil health regeneration",
+    fao_ecocrop_code: null,
+    source_reference: "Project heuristic; exact thresholds unverified",
     water_regime_assumption: "Natural soil moisture recovery / Zero inputs",
     parameter_units: { temp: "°C", rain: "mm/season (4 months)", soil_moisture: "GWETROOT fraction (0-1)" },
     temp_limits: { kill_min: -50.0, opt_min: 0.0, opt_max: 45.0, kill_max: 60.0 },
@@ -109,8 +96,21 @@ const SCIENTIFIC_CROP_PROFILES = {
 /**
  * Hàm liên thuộc hình thang mờ liên tục
  */
+for (const profile of Object.values(SCIENTIFIC_CROP_PROFILES)) {
+  profile.fao_ecocrop_code = null; // Legacy identifiers were not verified against an authoritative record.
+  profile.source_reference = 'Project heuristic; exact numeric thresholds have not been verified against primary crop/variety data';
+  profile.validation_status = 'experimental_unvalidated';
+  profile.frost_response = profile === SCIENTIFIC_CROP_PROFILES.Fallow ? 'not_applicable'
+    : profile === SCIENTIFIC_CROP_PROFILES.Veggies ? 'variety_dependent' : 'frost_sensitive';
+  profile.frost_policy_reference = 'https://www.fao.org/4/y7223e/y7223e0a.htm';
+  profile.region_scope = 'No calibrated geographic region or variety; fixed four-month seasons';
+  profile.parameter_provenance = Object.fromEntries(['temp_limits','rain_limits','soil_moisture_limits','nitrogen_balance','water_intensity','base_profit'].map(key=>[key,{
+    origin:'Existing project heuristic',verified:false,reference:null,
+    unit:key==='temp_limits' ? '°C seasonal mean' : key==='rain_limits' ? 'mm per four-month season' : key==='soil_moisture_limits' ? 'MERRA-2 wetness fraction; not a physical wilting point' : 'arbitrary score units'
+  }]));
+}
 function fuzzyTrapezoid(x, a, b, c, d) {
-  if (x <= a || x >= d) return 0.0;
+  if (x < a || x > d) return 0.0;
   if (x >= b && x <= c) return 1.0;
   if (x > a && x < b) return (x - a) / (b - a);
   if (x > c && x < d) return (d - x) / (d - c);
@@ -124,17 +124,32 @@ function computeCropSeasonSuitability(cropKey, seasonEnv) {
   const crop = SCIENTIFIC_CROP_PROFILES[cropKey] || SCIENTIFIC_CROP_PROFILES.Fallow;
   const { tempAvg, rainSeasonAccum, soilMoistureAvg, maxTs } = seasonEnv;
 
+  if (![tempAvg,rainSeasonAccum,soilMoistureAvg,maxTs].every(Number.isFinite)) throw new TypeError('Missing seasonal environment');
+  const exposure=seasonEnv.coldExposure;
+  const frostDetected=exposure?.frost_months?.length>0;
+  // A single cold month can be hidden by a positive four-month mean. This is a conservative
+  // planning exclusion for unprotected sensitive crops, NOT a diagnosis of observed mortality.
+  if (frostDetected && crop.frost_response!=='not_applicable') {
+    return {crop:cropKey,scientific_name:crop.scientific_name,model_status:'experimental_unvalidated',
+      suitability_score:0,yield_factor:0,is_lethal:crop.frost_response==='frost_sensitive',model_excluded:true,mortality_confirmed:false,
+      cold_risk:{status:crop.frost_response==='variety_dependent'?'variety_dependent':'high',...exposure},
+      linguistic_grade:'Nguy cơ tổn thương/chết rét; loại khỏi kế hoạch ngoài trời không bảo vệ',
+      reason:`Vụ có tín hiệu nhiệt độ dưới 0°C ở ${exposure.frost_months.map(m=>'T'+m).join(', ')}. ${crop.frost_response==='variety_dependent'?'Nhóm rau có cả giống chịu lạnh và nhạy rét; cần xác định giống trước khi khuyến nghị.':'Có thể gây tổn thương hoặc chết cây nhạy rét; chưa xác nhận cây đã chết.'}`};
+  }
   // 1. KIỂM TRA ĐIỀU KIỆN TỬ HÌNH BĂNG GIÁ (Freezing Death Penalty)
   // Nếu nhiệt độ trung bình dưới ngưỡng chết buốt (ví dụ lúa < 12°C, hoặc mùa vụ < 0°C)
-  if (tempAvg < crop.temp_limits.kill_min) {
+  if (cropKey !== "Fallow" && (tempAvg < crop.temp_limits.kill_min || tempAvg > crop.temp_limits.kill_max)) {
     return {
       crop: cropKey,
+      model_status: "experimental_unvalidated",
+      mortality_confirmed: false,
+      model_excluded: true,
       scientific_name: crop.scientific_name,
       suitability_score: 0.0,
       yield_factor: 0.0,
-      linguistic_grade: "Bị sương giá hủy diệt hoàn toàn (Frozen / Lethal Cold)",
+      linguistic_grade: "Ngoài giới hạn nhiệt của mô hình (experimental)",
       is_lethal: true,
-      reason: `Nhiệt độ ${tempAvg.toFixed(1)}°C thấp hơn ngưỡng sinh tồn ${crop.temp_limits.kill_min}°C.`
+      reason: `Nhiệt độ trung bình ${tempAvg.toFixed(1)}°C nằm ngoài giới hạn mô hình [${crop.temp_limits.kill_min}, ${crop.temp_limits.kill_max}]°C; chưa xác minh theo giống.`
     };
   }
 
@@ -146,6 +161,9 @@ function computeCropSeasonSuitability(cropKey, seasonEnv) {
       suitability_score: 0.0,
       yield_factor: 0.0,
       linguistic_grade: "Chết khô do thiếu nước cực hạn (Severe Desiccation)",
+      mortality_confirmed: false,
+      model_excluded: true,
+      model_status: "experimental_unvalidated",
       is_lethal: true,
       reason: `Lượng mưa mùa vụ ${rainSeasonAccum.toFixed(0)}mm và ẩm đất ${soilMoistureAvg.toFixed(2)} chạm điểm héo vĩnh viễn.`
     };
@@ -194,10 +212,14 @@ function computeCropSeasonSuitability(cropKey, seasonEnv) {
 
   return {
     crop: cropKey,
+    model_status: "experimental_unvalidated",
     scientific_name: crop.scientific_name,
     suitability_score: suitabilityScore,
     yield_factor: Math.round(compositeScore * 100) / 100,
-    linguistic_grade: linguisticGrade,
+    linguistic_grade: frostDetected && crop.frost_response==='variety_dependent' ? 'Nguy cơ rét phụ thuộc giống rau; cần chọn giống chịu lạnh' : linguisticGrade,
+    mortality_confirmed:false,
+    cold_risk:{status:crop.frost_response==='not_applicable'?'not_applicable':frostDetected?'variety_dependent':exposure?.unknown_months?.length?'unknown':'not_detected_in_available_data',
+      ...(exposure || {frost_months:[],unknown_months:[]})},
     is_lethal: false,
     sub_scores: {
       temperature_fit: Math.round(muTemp * 100),

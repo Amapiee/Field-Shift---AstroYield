@@ -1,32 +1,5 @@
-/**
- * ==============================================================================
- * THUẬT TOÁN 02: CALIBRATED MICROCLIMATE SIMULATION & FALLBACK MODEL
- * ==============================================================================
- * 
- * 1. BỐI CẢNH KHOA HỌC:
- *    Khi mạng Internet bị ngắt, hoặc NASA API bảo trì định kỳ, hệ thống cần một cơ chế
- *    dự phòng toán lý (fallback simulation) dựa trên phương trình bức xạ mặt trời thiên văn
- *    (Astronomical Solar Insolation) và phân đới khí hậu Köppen-Geiger.
- *    QUY TẮC CỐT LÕI: Dữ liệu mô phỏng TUYỆT ĐỐI không được ngụy trang thành dữ liệu quan sát thật.
- *    Mọi giá trị tạo ra phải được đóng dấu: status = "mock", confidence = 0.40.
- * 
- * 2. LOẠI DỮ LIỆU PHÙ HỢP:
- *    - Đầu vào: Vĩ độ (Latitude, -90 đến +90), Kinh độ (Longitude, -180 đến +180), Tháng (1-12).
- *    - Đầu ra: Bộ 6 biến vi khí hậu NASA tiêu chuẩn:
- *      + T2M, TS (°C)
- *      + PRECTOTCORR (mm/tháng)
- *      + ALLSKY_SFC_SW_DWN (MJ/m²/ngày)
- *      + GWETTOP, GWETROOT (0.0 - 1.0)
- * 
- * 3. MÔ HÌNH VẬT LÝ TOÁN HỌC:
- *    - Phân đới vĩ độ (Latitudinal Zonation):
- *      + Nhiệt đới (Tropical): |lat| < 23.5°
- *      + Ôn đới (Temperate): 23.5° <= |lat| < 55°
- *      + Hàn đới (Boreal / Polar): |lat| >= 55°
- *    - Lệch pha bán cầu: Bán cầu Nam lệch pha nửa chu kỳ (pi rad) so với Bán cầu Bắc.
- *    - Bức xạ sóng ngắn (Solar Insolation) mô phỏng góc chiếu thiên đỉnh mặt trời.
- */
-
+// DEMO ONLY: unvalidated latitude-only simulation. Not used as a NASA failure fallback.
+// Longitude and elevation are ignored; identical outputs do not establish similar local climates.
 const { DATA_CATALOG, createScientificRecord } = require("./01_nasa_data_provider");
 
 function clamp(val, min, max) {
@@ -116,7 +89,10 @@ function generateCalibratedFallback(lat, lon, seed = 42) {
     structuredData[key] = arr.map((val, idx) => {
       return createScientificRecord(key, val, "mock", "simulated", {
         month: idx + 1,
-        confidence: 0.40,
+        source: "Unvalidated latitude-only DEMO simulation",
+        product: "DEMO / LOW_CONFIDENCE",
+        period: null,
+        confidence: null,
         warning: "DỮ LIỆU MÔ PHỎNG DỰ PHÒNG. KHÔNG SỬ DỤNG CHO BÁO CÁO NGHIỆM THU THỰC TRƯỜNG."
       });
     });
@@ -124,7 +100,10 @@ function generateCalibratedFallback(lat, lon, seed = 42) {
 
   return {
     is_water: false,
-    source: "Calibrated Thermodynamic Fallback Model",
+    source: "DEMO / LOW_CONFIDENCE — unvalidated latitude-only simulation",
+    source_status: "demo",
+    recommendation_allowed: false,
+    limitations: "Ignores longitude, elevation and local aridity. Not calibrated to local observations; never used automatically when NASA fails.",
     _mock: true,
     coordinates: { lat, lon },
     climate_zone: isTropical ? "Tropical (Nhiệt đới)" : isTemperate ? "Temperate (Ôn đới)" : "Polar/Boreal (Hàn đới)",

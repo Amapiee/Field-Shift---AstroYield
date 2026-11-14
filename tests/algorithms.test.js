@@ -17,12 +17,13 @@ const { solveAHPWeights, rankScenariosTOPSIS } = require("../src/algorithms/12_m
 const { solveClassicalExactOptimizer, solveQuantumQAOA, buildSeasonEnvironments } = require("../src/algorithms/13_crop_rotation_optimization_qaoa_milp");
 const { calculateRMSE, calculateMAE, runSystemRobustnessCheck } = require("../src/algorithms/14_validation_and_benchmarking");
 
-test("Thuật toán 01: Metadata Contract trả chuẩn ISO 19115", () => {
-  const rec = createScientificRecord("GWETROOT", 0.45, "observed", "valid");
+test("Thuật toán 01: Metadata phân biệt climatology và confidence chưa hiệu chuẩn", () => {
+  const rec = createScientificRecord("GWETROOT", 0.45);
   assert.strictEqual(rec.variable, "GWETROOT");
-  assert.strictEqual(rec.status, "observed");
+  assert.strictEqual(rec.status, "climatology");
   assert.strictEqual(rec.unit, "dimensionless (0-1)");
-  assert.strictEqual(rec.confidence, 0.90);
+  assert.strictEqual(rec.confidence, null);
+  assert.strictEqual(rec.period,null);
 });
 
 test("Thuật toán 02: Calibrated Fallback gắn cờ mock minh bạch", () => {
@@ -113,22 +114,15 @@ test("Thuật toán 07: Savitzky-Golay làm mượt chuỗi và giữ nguyên đ
   assert.ok(pheno.amplitude > 0);
 });
 
-test("Thuật toán 08: SPI phát hiện hạn hán và thời tiết cực đoan", () => {
+test("Thuật toán 08: SPI không giả lập lịch sử từ climatology", () => {
   const rain = [5, 2, 0, 0, 50, 180, 250, 240, 190, 80, 30, 10];
   const spi = calculateSPI(rain);
-  assert.strictEqual(spi.length, 12);
-  // Tháng 3 và 4 (0mm) phải có SPI âm thể hiện khô hạn
-  assert.ok(spi[2].spi_value < 0);
-  assert.ok(spi[3].spi_value < 0);
-
-  // Kiểm tra tính toán chuỗi nhiều năm (Multi-Year SPI-1 và SPI-3)
-  const { calculateMultiYearSPI, regularizedGammaP } = require("../src/algorithms/08_anomaly_detection_spi");
-  assert.ok(regularizedGammaP(2.0, 3.0) > 0 && regularizedGammaP(2.0, 3.0) < 1);
-  const multiYear = new Array(36).fill(0).map((_, i) => (i % 12 === 0 ? 5 : 120));
-  const multiRes = calculateMultiYearSPI(multiYear, 3);
-  assert.strictEqual(multiRes.length, 36);
-  assert.strictEqual(multiRes[0].spi, null); // Tháng đầu chưa đủ 3 tháng tích lũy
-  assert.ok(typeof multiRes[3].spi === "number");
+  assert.strictEqual(spi.length,12);
+  assert.ok(spi.every(r=>r.spi_value===null && r.status==='unavailable'));
+  const {calculateMultiYearSPI,regularizedGammaP} = require('../src/algorithms/08_anomaly_detection_spi');
+  assert.ok(Math.abs(regularizedGammaP(2,3)-(1-4*Math.exp(-3)))<1e-10);
+  const short = Array.from({length:36},(_,i)=>({year:2000+Math.floor(i/12),month:i%12+1,rain_mm:120}));
+  assert.ok(calculateMultiYearSPI(short,3).every(r=>r.spi===null));
 });
 
 test("Thuật toán 09: K-Means++ gom cụm vi khí hậu nông nghiệp (AEZ)", () => {
@@ -143,7 +137,7 @@ test("Thuật toán 09: K-Means++ gom cụm vi khí hậu nông nghiệp (AEZ)",
   assert.strictEqual(aez.labels.length, 12);
 });
 
-test("Thuật toán 10: Random Forest dự báo năng suất và độ thích nghi", () => {
+test("Thuật toán 10: Random Forest phân loại thử nghiệm trên dữ liệu synthetic", () => {
   const { X, y } = createSyntheticCropDataset("Rice");
   const rf = new AgroRandomForestClassifier(8, 3);
   rf.fit(X, y);
@@ -172,8 +166,9 @@ test("Thuật toán 11: FAO EcoCrop hình thang mờ liên tục", () => {
 test("Thuật toán 12: AHP & TOPSIS tính trọng số nhất quán và xếp hạng kịch bản", () => {
   const { deriveAHPWeightsFromPreferences } = require("../src/algorithms/12_mcda_ahp_topsis");
   const ahpPref = deriveAHPWeightsFromPreferences([0.5, 0.3, 0.2]);
-  assert.strictEqual(ahpPref.is_consistent, true);
-  assert.ok(ahpPref.consistency_ratio < 0.10);
+  assert.strictEqual(ahpPref.pairwise_elicited, false);
+  assert.strictEqual(ahpPref.consistency_ratio, null);
+  assert.deepStrictEqual(ahpPref.weights,[0.5,0.3,0.2]);
 
   // Kiểm tra thanh trượt = 0: [0, 1, 0] phải giữ nguyên đúng tỷ lệ [0, 1, 0]
   const zeroSliderPref = deriveAHPWeightsFromPreferences([0, 1, 0]);

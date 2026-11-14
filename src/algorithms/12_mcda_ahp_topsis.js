@@ -1,18 +1,4 @@
-/**
- * ==============================================================================
- * THUẬT TOÁN 12: MULTI-CRITERIA DECISION ANALYSIS — AHP & TOPSIS (V3 CHUẨN KHOA HỌC)
- * ==============================================================================
- * 
- * 1. BỐI CẢNH KHOA HỌC & HOÀN THIỆN:
- *    - Quy trình phân tích thứ bậc (Analytic Hierarchy Process - AHP của Thomas Saaty, 1980):
- *      Tự động xây dựng ma trận so sánh cặp từ thanh trượt ưu tiên của nông dân,
- *      kiểm tra tỷ số nhất quán CR = CI / RI < 0.10. Nếu hợp lệ, sử dụng vector riêng chuẩn hóa.
- *    - Kỹ thuật TOPSIS (Hwang & Yoon, 1981):
- *      Phân biệt rõ ràng giữa Tiêu chí Lợi ích (Benefit Criteria: càng cao càng tốt như Đất, Lợi nhuận)
- *      và Tiêu chí Chi phí (Cost Criteria: càng thấp càng tốt như Lượng nước tiêu hao, Xói mòn).
- *    - Xử lý triệt để ma trận suy biến và các vector trọng số ngoại lai.
- */
-
+// Direct slider normalization, separate pairwise AHP helper, and candidate-relative TOPSIS.
 const RI_TABLE = [0, 0, 0.58, 0.90, 1.12, 1.24, 1.32, 1.41, 1.45, 1.49];
 
 /**
@@ -20,47 +6,13 @@ const RI_TABLE = [0, 0, 0.58, 0.90, 1.12, 1.24, 1.32, 1.41, 1.45, 1.49];
  * Hỗ trợ thanh trượt giá trị 0 (Zero-Preserving Direct Normalization)
  * @param {Array<number>} rawPreferences Điểm ưu tiên tương đối của nông dân [Soil, Water, Profit]
  */
-function deriveAHPWeightsFromPreferences(rawPreferences = [0.33, 0.33, 0.34]) {
-  const n = rawPreferences.length;
-  // Chuẩn hóa và làm sạch đầu vào, cho phép trọng số = 0 khi người dùng không ưu tiên tiêu chí đó
-  const cleanPrefs = rawPreferences.map(v => (typeof v === "number" && !isNaN(v) && v >= 0) ? v : 0.0);
-  const sumPref = cleanPrefs.reduce((a, b) => a + b, 0);
-
-  if (sumPref <= 1e-9) {
-    // Nếu tất cả thanh trượt đều bằng 0, chia đều trọng số
-    return {
-      weights: new Array(n).fill(Math.round((1.0 / n) * 1000) / 1000),
-      is_consistent: true,
-      consistency_ratio: 0.0,
-      lambda_max: n,
-      method: "Uniform Fallback (All sliders zero)"
-    };
-  }
-
-  const normPrefs = cleanPrefs.map(v => v / sumPref);
-
-  // Nếu có bất kỳ phần tử nào bằng 0, chuẩn hóa trực tiếp vector trọng số để giữ đúng ý nghĩa người dùng
-  if (normPrefs.some(v => v === 0)) {
-    return {
-      weights: normPrefs.map(w => Math.round(w * 1000) / 1000),
-      is_consistent: true,
-      consistency_ratio: 0.0,
-      lambda_max: n,
-      method: "Direct Slider Preference Normalization (Zero-Preserving)"
-    };
-  }
-
-  // Xây dựng ma trận so sánh cặp A_{ij} = w_i / w_j (nhất quán theo cấu trúc)
-  const pairwiseMatrix = Array.from({ length: n }, () => new Array(n).fill(1.0));
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
-      pairwiseMatrix[i][j] = normPrefs[i] / normPrefs[j];
-    }
-  }
-
-  const result = solveAHPWeights(pairwiseMatrix);
-  result.method = "AHP Ratio-Derived Pairwise Matrix";
-  return result;
+// Compatibility name: sliders provide direct weights, not elicited AHP pairwise judgments.
+function deriveAHPWeightsFromPreferences(rawPreferences=[0.33,0.33,0.34]) {
+  const values=rawPreferences.map(v=>Number.isFinite(v) && v>=0 ? v : 0);
+  const total=values.reduce((a,b)=>a+b,0);
+  return {weights:values.map(v=>total ? v/total : 1/values.length),
+    method:'Direct normalized slider preferences',pairwise_elicited:false,
+    is_consistent:null,consistency_ratio:null,lambda_max:null};
 }
 
 /**
@@ -80,6 +32,10 @@ function solveAHPWeights(pairwiseMatrix) {
     }
   }
 
+  for (let i=0;i<n;i++) for(let j=0;j<n;j++) {
+    if (!Number.isFinite(pairwiseMatrix[i][j]) || pairwiseMatrix[i][j]<=0 || Math.abs(pairwiseMatrix[i][j]*pairwiseMatrix[j][i]-1)>1e-4)
+      throw new TypeError('AHP pairwise entries must be positive, finite and reciprocal');
+  }
   const colSums = new Array(n).fill(0);
   for (let j = 0; j < n; j++) {
     for (let i = 0; i < n; i++) colSums[j] += pairwiseMatrix[i][j];
@@ -104,7 +60,7 @@ function solveAHPWeights(pairwiseMatrix) {
   lambdaMax /= n;
 
   const CI = (lambdaMax - n) / Math.max(n - 1, 1);
-  const RI = RI_TABLE[n] || 0.90;
+  const RI = n <= 2 ? 0 : RI_TABLE[n - 1] || 0.90;
   const CR = RI > 0 ? CI / RI : 0.0;
 
   return {

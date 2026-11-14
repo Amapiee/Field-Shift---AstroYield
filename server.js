@@ -19,7 +19,11 @@ app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
 app.use("/api", apiRoutes);
-app.use(express.static(path.join(__dirname, "public")));
+// Prevent fresh HTML/JS being paired with a cached older implementation.
+app.use(express.static(path.join(__dirname, "public"), {
+  etag: false,
+  setHeaders(res,file) { if (/\.(html|js|css)$/.test(file)) res.setHeader('Cache-Control','no-store'); }
+}));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

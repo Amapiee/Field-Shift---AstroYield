@@ -1,8 +1,9 @@
+const {seededRandom} = require('../utils/random');
 /**
  * ==============================================================================
  * THUẬT TOÁN 09: SEASONAL CLIMATE & MULTI-SITE AGRO-ECOLOGICAL K-MEANS++ (V3)
  * ==============================================================================
- * 
+ *
  * 1. BỐI CẢNH KHOA HỌC & ĐỊNH DANH CHUẨN XÁC:
  *    - Phân biệt rõ hai cấp độ phân cụm không giám sát:
  *      1. `clusterSeasonalClimate`: Phân cụm mùa vụ vi khí hậu 12 tháng tại 1 điểm khảo sát
@@ -43,10 +44,10 @@ function distSq(v1, v2) {
   return s;
 }
 
-function runSingleKMeans(features, k, maxIter = 100) {
+function runSingleKMeans(features, k, maxIter = 100, rng = seededRandom()) {
   const n = features.length;
   const centroids = [];
-  centroids.push(features[Math.floor(Math.random() * n)].slice());
+  centroids.push(features[Math.floor(rng() * n)].slice());
 
   while (centroids.length < k) {
     const dists = features.map(x => {
@@ -59,7 +60,7 @@ function runSingleKMeans(features, k, maxIter = 100) {
     });
 
     const sumDist = dists.reduce((a, b) => a + b, 0);
-    let rand = Math.random() * sumDist;
+    let rand = rng() * sumDist;
     let chosenIdx = 0;
 
     for (let i = 0; i < n; i++) {
@@ -121,10 +122,13 @@ function runSingleKMeans(features, k, maxIter = 100) {
   return { labels, centroids, inertia, iterations: iter };
 }
 
-function runKMeansPlusPlus(features, k = 3, nInit = 10) {
+function runKMeansPlusPlus(features, k = 3, nInit = 10, seed = 42) {
+  if (!Array.isArray(features) || features.length<k || !Number.isInteger(k) || k<1 || !Number.isInteger(nInit) || nInit<1 ||
+      features.some(row=>!Array.isArray(row) || !row.length || row.length!==features[0].length || !row.every(Number.isFinite))) throw new TypeError('Invalid clustering matrix');
+  const rng=seededRandom(seed);
   let bestRun = null;
   for (let r = 0; r < nInit; r++) {
-    const run = runSingleKMeans(features, k);
+    const run = runSingleKMeans(features, k, 100, rng);
     if (bestRun === null || run.inertia < bestRun.inertia) {
       bestRun = run;
     }

@@ -602,3 +602,11 @@ select option{background:#0f1e2e;color:var(--text)}
   #left-panel{width:260px}
   #right-panel{width:320px}
 }
+#terrain-summary, #cold-risk-summary { font-size: 0.72rem; line-height: 1.6; margin-bottom: 8px; }
+.cold-month, .season-risk { font-size: 0.7rem; line-height: 1.5; padding: 5px 0; border-bottom: 1px solid rgba(148,163,184,0.15); }
+.cold-detected { color: #fbbf24; }
+.data-details { flex-shrink: 0; margin: 10px 18px 0; color: #94a3b8; font-size: .7rem; line-height: 1.6; }
+.data-details summary { cursor: pointer; color: #38bdf8; }
+.data-details[open] { max-height: 180px; overflow-y: auto; }
+.data-details div { margin-top: 6px; overflow-wrap: anywhere; }
+#analysis-message { margin-top: 10px; color: #fbbf24; font-size: .75rem; line-height: 1.5; }

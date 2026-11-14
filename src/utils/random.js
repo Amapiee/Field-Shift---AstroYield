@@ -1,0 +1,9 @@
+// Reproducible simulation and test RNG; not for security use.
+function seededRandom(seed = 42) {
+  let state = seed >>> 0;
+  return () => {
+    state = (Math.imul(1664525, state) + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+module.exports = { seededRandom };

@@ -66,12 +66,13 @@ const farmIcon = L.divIcon({
 });
 
 function placeMarker(lat, lon, flyTo = false, zoom = null) {
+  lat = Number(lat.toFixed(4)); lon = Number(lon.toFixed(4));
   if (farmMarker) map.removeLayer(farmMarker);
   farmMarker = L.marker([lat, lon], { icon: farmIcon }).addTo(map);
   farmMarker.bindPopup(
     `<div style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;
       color:#10b981;background:#060d16;padding:6px 10px;border-radius:6px;border:1px solid #10b98144">
-      📍 ${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E
+      📍 ${Math.abs(lat).toFixed(4)}°${lat < 0 ? 'S' : 'N'}, ${Math.abs(lon).toFixed(4)}°${lon < 0 ? 'W' : 'E'}
     </div>`,
     { closeButton: false, offset: [0, -12] }
   );
@@ -85,6 +86,15 @@ function placeMarker(lat, lon, flyTo = false, zoom = null) {
 map.on("click", e => {
   if (typeof closeWaterAlert === "function") closeWaterAlert();
   placeMarker(e.latlng.lat, e.latlng.lng);
+  checkSelectedLocation(farmLat, farmLon);
 });
 placeMarker(farmLat, farmLon);
+for (const id of ['inp-lat', 'inp-lon']) document.getElementById(id).addEventListener('change', () => {
+  const latText = document.getElementById('inp-lat').value.trim(), lonText = document.getElementById('inp-lon').value.trim();
+  const lat = Number(latText), lon = Number(lonText);
+  if (latText && lonText && Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+    placeMarker(lat, lon);
+    checkSelectedLocation(farmLat, farmLon);
+  }
+});
 

@@ -2,7 +2,7 @@
  * ==============================================================================
  * THUẬT TOÁN 06: REMOTE SENSING INDICES (NDVI, EVI, NDMI, SAVI, ESI & EROSION V2)
  * ==============================================================================
- * 
+ *
  * 1. BỐI CẢNH KHOA HỌC & RÀNG BUỘC SINH ĐỊA CẢNH:
  *    - Chế độ phổ thực nghiệm:
  *      + NDVI (Rouse 1974): $(\rho_{NIR} - \rho_{Red}) / (\rho_{NIR} + \rho_{Red})$
@@ -27,24 +27,28 @@ function round(v, dec = 3) {
 }
 
 function computeNDVISpectral(nir, red) {
+  if (![nir,red].every(Number.isFinite)) return null;
   const denom = nir + red;
   if (denom <= 1e-6) return 0.0;
   return round(clamp((nir - red) / denom, -1.0, 1.0), 3);
 }
 
 function computeEVISpectral(nir, red, blue) {
+  if (![nir,red,blue].every(Number.isFinite)) return null;
   const denom = nir + 6.0 * red - 7.5 * blue + 1.0;
   if (Math.abs(denom) <= 1e-6) return 0.0;
   return round(clamp(2.5 * ((nir - red) / denom), -1.0, 1.0), 3);
 }
 
 function computeNDMISpectral(nir, swir1) {
+  if (![nir,swir1].every(Number.isFinite)) return null;
   const denom = nir + swir1;
   if (denom <= 1e-6) return 0.0;
   return round(clamp((nir - swir1) / denom, -1.0, 1.0), 3);
 }
 
 function computeSAVISpectral(nir, red, L = 0.5) {
+  if (![nir,red,L].every(Number.isFinite)) return null;
   const denom = nir + red + L;
   if (denom <= 1e-6) return 0.0;
   return round(clamp(((nir - red) / denom) * (1.0 + L), -1.0, 1.0), 3);
@@ -118,14 +122,40 @@ function estimateVegetationProxyFromClimate(gwetroot, rainMonthly, tempAir, temp
     is_proxy: true,
     metadata: {
       status: "derived_proxy",
-      quality: "calibrated_biophysical_proxy",
+      quality: "experimental_uncalibrated_proxy",
       method: "Biophysical Temperature-Moisture Empirical Coupling Proxy (Liebig Law & Cryosphere Aware)",
       warning: "GIÁ TRỊ ƯỚC TÍNH (PROXY) TỪ KHÍ TƯỢNG NASA POWER. KHÔNG PHẢI PHÉP ĐO QUANG PHỔ TRỰC TIẾP TỪ MODIS HOẶC ECOSTRESS."
     }
   };
 }
 
+// A scene must carry explicit surface reflectance, product-specific QA and provenance.
+// The analyze route does not fabricate scenes from climate variables.
+function processReflectanceScene(scene) {
+  const {maskCloudByProduct} = require('./05_cloud_masking_qa');
+  const products = {LANDSAT_C2:'LANDSAT_C2',MOD09GA:'MOD09GA',SENTINEL2_L2A:'SENTINEL2_SCL'};
+  if (!scene || !products[scene.product] || scene.qa_product !== products[scene.product] ||
+      scene.processing_level !== 'surface_reflectance' || !scene.source || !scene.date ||
+      !Array.isArray(scene.pixels) || !Array.isArray(scene.qa) || scene.qa.length !== scene.pixels.length) {
+    throw new TypeError('Surface reflectance, matching product QA, source and date are required');
+  }
+  const pixels = scene.pixels.map((p,i) => {
+    const qa = scene.qa[i];
+    const maxCode = scene.qa_product === 'SENTINEL2_SCL' ? 11 : 65535;
+    if (!Number.isInteger(qa) || qa < 0 || qa > maxCode) return {NDVI:null,EVI:null,NDMI:null,status:'missing_qa'};
+    const mask = maskCloudByProduct(qa,scene.qa_product);
+    if (!mask.usable_for_agriculture) return {NDVI:null,EVI:null,NDMI:null,status:'masked'};
+    if (!p || ![p.nir,p.red,p.blue,p.swir1].every(v=>Number.isFinite(v) && v>=0 && v<=1)) {
+      return {NDVI:null,EVI:null,NDMI:null,status:'missing_reflectance'};
+    }
+    return {NDVI:computeNDVISpectral(p.nir,p.red),EVI:computeEVISpectral(p.nir,p.red,p.blue),
+      NDMI:computeNDMISpectral(p.nir,p.swir1),status:'spectral_derived'};
+  });
+  return {pixels,source:scene.source,product:scene.product,qa_product:scene.qa_product,date:scene.date,status:'spectral_derived'};
+}
+
 module.exports = {
+  processReflectanceScene,
   computeNDVISpectral,
   computeEVISpectral,
   computeNDMISpectral,

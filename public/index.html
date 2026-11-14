@@ -16,7 +16,7 @@
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
-<link rel="stylesheet" href="css/style.css"/>
+<link rel="stylesheet" href="css/style.css?v=terrain2"/>
 </head>
 <body>
 
@@ -39,7 +39,7 @@
     <span>🌱</span>
     <div>
       <div>FARMSHIFT</div>
-      <div class="logo-sub">AI & Quantum-Powered Precision Agriculture</div>
+      <div class="logo-sub">Experimental Climate & Rotation Explorer</div>
     </div>
   </div>
   <div class="header-badges">
@@ -49,7 +49,6 @@
     <span class="hbadge hbadge-nasa">🌡️ Thermal TS</span>
     <span class="hbadge hbadge-nasa">🌿 Proxy NDVI</span>
     <span class="hbadge hbadge-q">⚛️ Statevector QAOA</span>
-    <span class="hbadge hbadge-src" id="data-source-badge">Source: —</span>
   </div>
 </header>
 
@@ -168,6 +167,7 @@
     <button class="btn-analyze" id="btn-run" onclick="runAnalysis()">
       🚀 RUN QUANTUM ANALYSIS
     </button>
+    <div id="analysis-message" role="status" aria-live="polite" hidden></div>
   </div>
 
   <!-- Alerts -->
@@ -187,6 +187,13 @@
     <button class="tab-btn" onclick="switchTab('arena',this)">⚛️ Quantum Arena</button>
   </div>
 
+  <details class="data-details" id="data-details">
+    <summary>Nguồn dữ liệu và trạng thái phân tích</summary>
+    <div id="data-source-badge">Chưa có dữ liệu.</div>
+    <div id="source-reason"></div>
+    <div id="solver-details"></div>
+  </details>
+
   <!-- TAB 1: SATELLITE TELEMETRY -->
   <div class="tab-content active" id="tab-telemetry">
     <div class="sat-row">
@@ -204,7 +211,7 @@
     <div class="sat-row">
       <div class="sat-icon">💧</div>
       <div class="sat-info">
-        <div class="sat-name">NASA SMAP · Crop-CASMA</div>
+        <div class="sat-name">POWER / MERRA-2 soil model</div>
         <div class="sat-desc">GWETTOP · GWETROOT</div>
       </div>
       <div class="sat-values">
@@ -216,7 +223,7 @@
     <div class="sat-row">
       <div class="sat-icon">🌧️</div>
       <div class="sat-info">
-        <div class="sat-name">NASA GPM IMERG</div>
+        <div class="sat-name">POWER corrected precipitation</div>
         <div class="sat-desc">PRECTOTCORR · Erosion Risk</div>
       </div>
       <div class="sat-values">
@@ -228,7 +235,7 @@
     <div class="sat-row">
       <div class="sat-icon">🌡️</div>
       <div class="sat-info">
-        <div class="sat-name">ECOSTRESS / MODIS LST</div>
+        <div class="sat-name">POWER thermal & ESI proxy</div>
         <div class="sat-desc">TS · ESI · Heat Stress</div>
       </div>
       <div class="sat-values">
@@ -240,7 +247,7 @@
     <div class="sat-row">
       <div class="sat-icon">🌿</div>
       <div class="sat-info">
-        <div class="sat-name">MODIS NDVI + SoilGrids</div>
+        <div class="sat-name">Climate-derived NDVI proxy</div>
         <div class="sat-desc">Vegetation Health · Fertility</div>
       </div>
       <div class="sat-values">
@@ -249,8 +256,14 @@
       </div>
     </div>
 
+    <div class="mini-chart-wrap" aria-live="polite">
+      <div class="mini-chart-title">🏔️ ĐỘ CAO &amp; NGUY CƠ RÉT</div>
+      <div id="terrain-summary">Chưa có dữ liệu độ cao.</div>
+      <div id="cold-risk-summary">Chưa đánh giá nhiệt độ tối thiểu.</div>
+      <div id="cold-risk-months"></div>
+    </div>
     <div class="mini-chart-wrap">
-      <div class="mini-chart-title">🌡️ TEMPERATURE PROFILE (12 Months)</div>
+      <div class="mini-chart-title">🌡️ TEMPERATURE PROFILE · TB &amp; MINIMUM (°C)</div>
       <canvas id="chart-temp" height="90"></canvas>
     </div>
     <div class="mini-chart-wrap">
@@ -266,7 +279,7 @@
   <!-- TAB 2: QUANTUM ARENA -->
   <div class="tab-content" id="tab-arena">
     <div class="match-score-wrap">
-      <div class="match-score-label">⚛️ Quantum Match Score</div>
+      <div class="match-score-label">⚛️ Strategy comparison score</div>
       <div class="match-score-val" id="match-score">—%</div>
       <div class="match-score-desc" id="match-desc">Run analysis to compare strategies</div>
     </div>
@@ -282,11 +295,12 @@
       <div id="user-hp-soil"></div>
       <div id="user-hp-water"></div>
       <div id="user-hp-profit"></div>
+      <div id="user-season-risks"></div>
     </div>
 
     <div class="arena-block quantum-block">
       <div class="arena-block-header">
-        <div class="arena-label" style="color:var(--purple)">⚛️ Quantum AI Optimal</div>
+        <div class="arena-label" style="color:var(--purple)">⚛️ Rotation candidate · Experimental</div>
         <div class="rank-chip" id="q-rank">—</div>
       </div>
       <div class="q-method" id="q-method">Waiting for analysis…</div>
@@ -294,6 +308,7 @@
       <div id="q-hp-soil"></div>
       <div id="q-hp-water"></div>
       <div id="q-hp-profit"></div>
+      <div id="q-season-risks"></div>
     </div>
 
     <div class="radar-wrap">
@@ -333,18 +348,19 @@
       <button class="water-alert-close" onclick="closeWaterAlert()" title="Đóng" aria-label="Đóng">&times;</button>
     </div>
     <div class="water-alert-desc">
-      Tọa độ này nằm trên đại dương/mặt nước. Vệ tinh SMAP và GPM IMERG không thể tính toán luân canh cho vùng biển. Vui lòng chọn khu vực đất liền!
+      Điểm chọn nằm trên mặt nước theo bản đồ. Vui lòng chọn đất liền để phân tích trồng trọt.
     </div>
   </div>
 </div>
 
 <!-- ═══════════ JAVASCRIPT ═══════════ -->
-<script src="js/state.js"></script>
-<script src="js/map.js"></script>
-<script src="js/geocoder.js"></script>
-<script src="js/ui-helpers.js"></script>
-<script src="js/charts.js"></script>
-<script src="js/render.js"></script>
-<script src="js/analysis.js"></script>
+<script src="js/state.js?v=terrain2"></script>
+<script src="js/location.js?v=terrain2"></script>
+<script src="js/map.js?v=terrain2"></script>
+<script src="js/geocoder.js?v=terrain2"></script>
+<script src="js/ui-helpers.js?v=terrain2"></script>
+<script src="js/charts.js?v=terrain2"></script>
+<script src="js/render.js?v=terrain2"></script>
+<script src="js/analysis.js?v=terrain2"></script>
 </body>
 </html>

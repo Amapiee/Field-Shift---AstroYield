@@ -32,7 +32,13 @@ function buildCharts(monthly) {
       datasets: [
         { label: "T2M (°C)", data: monthly.T2M, borderColor: "#f59e0b", borderWidth: 2,
           backgroundColor: "rgba(245,158,11,0.08)", fill: true, tension: 0.4, pointRadius: 3 },
-        { label: "TS (°C)",  data: monthly.TS,  borderColor: "#ef4444", borderWidth: 1.5,
+        { label: "Tmin khí hậu (°C)", data: monthly.T2M_MIN || Array(12).fill(null), borderColor: "#38bdf8",
+          borderWidth: 2, pointRadius: 3, spanGaps: false, tension: 0 },
+        { label: "Tmin thấp nhất lịch sử đã tải (°C)", data: monthly.T2M_MIN_HISTORY || Array(12).fill(null), borderColor: "#a78bfa",
+          borderWidth: 2, borderDash: [5,3], pointRadius: 3, spanGaps: false, tension: 0 },
+        { label: "Mốc 0°C", data: Array(12).fill(0), borderColor: "#94a3b8", borderWidth: 1,
+          borderDash: [3,3], pointRadius: 0 },
+        { label: "TS bề mặt (°C)",  data: monthly.TS,  borderColor: "#ef4444", borderWidth: 1.5,
           borderDash: [4,3], tension: 0.4, pointRadius: 2, backgroundColor: "transparent" }
       ]
     },
@@ -71,7 +77,7 @@ function buildCharts(monthly) {
     data: {
       labels: MONTHS,
       datasets: [{
-        label: "NDVI", data: monthly.NDVI,
+        label: "NDVI climate proxy", data: monthly.NDVI,
         borderColor: "#10b981", borderWidth: 2, tension: 0.4,
         backgroundColor: "rgba(16,185,129,0.12)", fill: true, pointRadius: 3
       }]
@@ -85,7 +91,7 @@ function buildCharts(monthly) {
 
 function buildRadar(scenarios) {
   chartRadar = destroyChart(chartRadar);
-  const cats = ["Soil HP","Water HP","Profit HP","Overall"];
+  const cats = ["Đất (heuristic)","Nước (heuristic)","Lợi ích (heuristic)","Điểm lập kế hoạch"];
   const extract = sc => [sc.soil_hp, sc.water_hp, sc.profit_hp, sc.overall];
   chartRadar = new Chart(document.getElementById("chart-radar"), {
     type: "radar",
@@ -95,7 +101,7 @@ function buildRadar(scenarios) {
         { label: "Your Strategy", data: extract(scenarios.user),
           borderColor: "#38bdf8", backgroundColor: "rgba(56,189,248,0.1)",
           borderWidth: 2, pointBackgroundColor: "#38bdf8" },
-        { label: "Quantum AI", data: extract(scenarios.quantum),
+        { label: scenarios.quantum.fallback_used ? "Classical fallback" : "QAOA simulation", data: extract(scenarios.quantum),
           borderColor: "#a78bfa", backgroundColor: "rgba(167,139,250,0.1)",
           borderWidth: 2, pointBackgroundColor: "#a78bfa" },
         { label: "Baseline", data: extract(scenarios.baseline),

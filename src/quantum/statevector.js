@@ -50,14 +50,14 @@ class Statevector {
     }
   }
   // Đo `shots` lần → Map<bitstring (qubit cao nhất bên trái, như Qiskit), count>
-  sample(shots) {
+  sample(shots, rng = Math.random) {
     const { re, im, N, n } = this;
     const cdf = new Float64Array(N);
     let acc = 0;
     for (let i = 0; i < N; i++) { acc += re[i] * re[i] + im[i] * im[i]; cdf[i] = acc; }
     const counts = new Map();
     for (let s = 0; s < shots; s++) {
-      const x = Math.random() * acc;
+      const x = rng() * acc;
       let lo = 0, hi = N - 1;
       while (lo < hi) { const mid = (lo + hi) >> 1; cdf[mid] < x ? (lo = mid + 1) : (hi = mid); }
       const key = lo.toString(2).padStart(n, "0");
