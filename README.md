@@ -2,7 +2,7 @@
 
 NASA Space Apps Challenge 2026 — *Field Shift: Adapting Farms with NASA Data*
 
-Ứng dụng nông nghiệp chính xác tích hợp dữ liệu vệ tinh NASA, mô phỏng tính toán Lượng tử (Quantum QAOA) và trực quan hóa bản đồ nhiệt (Global Climate Heatmap) nhằm tối ưu hóa chu kỳ luân canh cây trồng, dự báo rủi ro thiên tai (Hạn hán & Lũ lụt) và bảo vệ tài nguyên đất.
+Ứng dụng nông nghiệp chính xác tích hợp dữ liệu vệ tinh NASA, mô phỏng tính toán Lượng tử (Quantum QAOA), trực quan hóa bản đồ nhiệt khí hậu (Global Climate Heatmap), bản đồ bong bóng vùng trồng trọng điểm (Crop Bubble Map) và phân tích tuyến đường thương mại (Trade Routes) nhằm tối ưu hóa chu kỳ luân canh, dự báo rủi ro thiên tai và tối đa hóa lợi nhuận nông sản.
 
 ---
 
@@ -13,83 +13,129 @@ npm install
 npm start                 # Khởi chạy server tại http://localhost:3000
 PORT=3001 npm start       # Đổi cổng nếu cổng 3000 bị chiếm
 DEBUG=1 npm start         # Bật log thời gian chi tiết từng bước xử lý
-npm run dev               # Chạy chế độ phát triển (tự khởi động lại khi sửa code)
+npm run dev               # Chạy chế độ phát triển (nodemon)
 npm test                  # Chạy bộ unit test tự động
-Yêu cầu: Node.js >= 18.
+
+# Tạo dữ liệu bản đồ vùng trồng (Yêu cầu Python + thư viện rioxarray)
+python scripts/build_crop_popularity.py
+
+# Tạo dữ liệu tuyến thương mại mẫu (nếu không có API key Comtrade)
+npm run build:trade:sample 
+Yêu cầu hệ thống: Node.js >= 18, Python >= 3.8 (nếu chạy script bản đồ cây trồng).
 
 🏗️ Kiến Trúc Hệ Thống & Cấu Trúc Mã Nguồn
+text
 server.js                  Cấu hình Express, xử lý EADDRINUSE tự động, nạp API & Static files
 src/
-  routes/api.js            Endpoints (/api/analyze, /api/random_coords) & Error middleware
-  services/nasa.js         Fetch NASA POWER (có auto-convert mm/ngày -> mm/tháng), Caching 1h,
-                           PRNG Mock deterministic theo tọa độ, tính chỉ số NDVI/ESI/DRI/FRI
-  services/scoring.js      Chấm điểm Đất / Nước / Lợi nhuận (có hệ số phạt sinh tồn khi thiếu nước)
-  services/alerts.js       Chẩn đoán rủi ro thiên tai chuyên biệt (Hạn hán & Lũ lụt)
-  quantum/statevector.js   Bộ mô phỏng trạng thái Qubit (Hadamard, RZ, CX, RX, Đo mẫu)
-  quantum/qaoa.js          Ma trận chi phí QUBO + Thuật toán Lượng tử QAOA 18-qubit
-  config/crops.js          Định nghĩa thông số cây trồng, chỉ số chịu nhiệt/hạn/ngập & mùa vụ
-  utils/helpers.js         Hàm tiện ích (clamp, round, mean, meanAt, maxOf, minOf, THRESHOLDS)
-  utils/logger.js          Bộ ghi log thời gian & gỡ lỗi theo biến môi trường DEBUG
+  routes/api.js            Endpoints (/api/analyze, /api/trade_routes, /api/random_coords)
+  services/
+    nasa.js                Fetch NASA POWER (SMAP, GPM, ECOSTRESS), Cache 1h, tính NDVI/DRI/FRI
+    scoring.js             Chấm điểm Đất / Nước / Lợi nhuận (tính đến stress sinh học)
+    alerts.js              Chẩn đoán rủi ro thiên tai (Hạn hán & Lũ lụt)
+    trade.js               Tính toán tuyến thương mại, cước phí đa phương thức, hao hụt & ngoại cảnh
+  quantum/
+    statevector.js         Bộ mô phỏng trạng thái Qubit (Hadamard, RZ, CX, RX)
+    qaoa.js                Ma trận chi phí QUBO + Thuật toán QAOA 18-qubit (phạt độc canh)
+  config/
+    crops.js               Thông số sinh học cây trồng, mùa vụ
+    transport.js           Cấu hình logistics (cước/km, hệ số địa hình, tốc độ, hao hụt)
+  data/
+    markets.js             Danh sách các trạm thu mua, nhà máy, cảng xuất khẩu toàn cầu
+  utils/                   Hàm tiện ích (clamp, round, mean) & Logger
 public/
-  index.html               Giao diện người dùng (Accordion mượt, Sidebar scrollable, Settings Modal)
-  css/style.css            Hệ thống kiểu dáng UI Glassmorphism & Tối ưu bố cục responsive
-  js/state.js              Quản lý trạng thái toàn cục ứng dụng
-  js/map.js                Bản đồ Leaflet (Quản lý đa lớp Esri/Google, pane nhãn độc lập)
-  js/geocoder.js           Tìm kiếm địa điểm đa nguồn (ArcGIS -> Photon -> Nominatim + Async Water Guard)
-  js/ui-helpers.js         Tạo thẻ cây trồng, thanh HP, Modal Settings, Random vị trí an toàn
-  js/charts.js             Khởi tạo & Cập nhật biểu đồ Chart.js (Biểu đồ đường, cột & Radar)
-  js/render.js             Đổ dữ liệu từ API lên UI, kiểm soát khối RISK (DRI/FRI) & Chuyển Tab
-  js/analysis.js           Xử lý luồng tải (Loading Steps) và gọi API /api/analyze
-  js/heatmap-core.js       Nội suy toán học, giải mã lưới khí hậu & bảng màu Heatmap
-  js/heatmap.js            Tích hợp lớp Canvas Heatmap lên Leaflet + Điều khiển UI
-  data/climate-grid.json   Dữ liệu lưới khí hậu toàn cầu 5° (T2M, RH2M, GWETROOT × 12 tháng)
+  index.html               Giao diện chính, Sidebar Accordion, Settings Modal
+  css/style.css            UI Glassmorphism, Theme động, Responsive
+  js/
+    state.js, map.js       Quản lý trạng thái, Bản đồ Leaflet (Esri/Google)
+    geocoder.js            Tìm kiếm địa điểm (ArcGIS -> Photon -> Nominatim) + Water Guard
+    charts.js, render.js   Vẽ biểu đồ Chart.js & Đổ dữ liệu UI
+    analysis.js            Logic gọi API /api/analyze
+    heatmap-core.js        Nội suy toán học & bảng màu Heatmap
+    heatmap.js             Tích hợp Canvas Heatmap khí hậu lên Leaflet
+    crop-bubbles.js        Vẽ bản đồ bong bóng (CircleMarker) vùng trồng trọng điểm
+    trade.js               Vẽ modal phân tích kinh tế & tuyến đường (animation)
+    settings.js            Xử lý Theme, Layout, Ngôn ngữ
+  data/
+    climate-grid.json      Dữ liệu lưới khí hậu toàn cầu 5°
+    crop-points.json       Dữ liệu tọa độ vùng trồng (Từ FAO CROPGRIDS)
+    trade-flows.json       Dữ liệu luồng thương mại nông sản
 scripts/
-  build-climate-grid.js    Script cào dữ liệu NASA POWER thật tạo file climate-grid.json
-  dev/gen_synthetic_grid.py Sinh dữ liệu MÔ PHỎNG để demo khi chưa build lưới thật
-tests/                     Các kịch bản kiểm thử tự động cho helpers, nasa, scoring và quantum
+  build-climate-grid.js    Script cào dữ liệu tạo climate-grid.json
+  build_crop_popularity.py Script Python tải FAO CROPGRIDS & xuất crop-points.json
+  build-trade-flows.js     Script tải dữ liệu UN Comtrade & tính tuyến (searoute-js)
 🌟 Các Tính Năng Nổi Bật
-1. Dữ Liệu Vệ Tinh NASA & Chỉ Số Phái Sinh Chuyên Sâu
-NASA POWER, SMAP, GPM IMERG, ECOSTRESS, MODIS: Thu thập dữ liệu thực tế về Nhiệt độ (T2M, TS), Lượng mưa (PRECTOTCORR), Độ ẩm đất (GWETTOP, GWETROOT), Bức xạ mặt trời.
-Chẩn đoán Thiên tai Chuyên biệt (DRI & FRI):
-DRI (Drought Risk Index): Tính toán rủi ro hạn hán dựa trên độ khô của đất tầng rễ và mức độ sốc nhiệt trong năm.
-FRI (Flood Risk Index): Đánh giá nguy cơ ngập úng/lũ lụt kết hợp giữa lượng mưa cực đoan và mức độ bão hòa nước của đất.
-Tự động Chuẩn hóa & Cache: Tự động chuyển đổi lượng mưa từ mm/ngày sang mm/tháng đảm bảo tính chính xác với thực tế; tích hợp bộ nhớ đệm In-Memory Cache (TTL 1 giờ) giúp tăng tốc độ phản hồi.
-Mock Deterministic dự phòng: Khi mất kết nối API, bộ giả lập sẽ tạo dữ liệu nhất quán theo tọa độ lat/lon (cùng vị trí luôn ra cùng một bộ dữ liệu).
+1. Dữ Liệu Vệ Tinh NASA & Chỉ Số Phái Sinh
+Đa nguồn: NASA POWER, SMAP (độ ẩm đất), GPM IMERG (lượng mưa), ECOSTRESS, MODIS.
+
+Chẩn đoán Thiên tai: DRI (Hạn hán) và FRI (Lũ lụt) tính toán dựa trên độ khô đất, mưa cực đoan và sốc nhiệt.
+
+Mock Deterministic: Tự động dùng dữ liệu giả lập nhất quán theo tọa độ nếu API lỗi.
+
 2. Thuật Toán Lượng Tử QAOA (18-Qubit Optimization)
-Xây dựng ma trận chi phí QUBO dựa trên trọng số ưu tiên của nông dân (Đất, Nước, Lợi nhuận) và dữ liệu thời tiết thực tế tại ô đất.
-Mô phỏng mạch lượng tử QAOA trên 18 Qubits (3 mùa vụ × 6 loại cây) với các lớp Phase Separation và Entanglement, thực hiện 1024 lần đo (shots) để tìm ra chiến lược luân canh đạt lợi ích tối đa.
-3. Trực Quan Hóa Bản Đồ Nhiệt Toàn Cầu (Global Heatmap)
-Hiển thị lớp phủ Canvas độ phân giải cao trên toàn cầu mà không làm giảm hiệu năng (chỉ chiếm ~0.4 MB RAM).
-Cho phép bật/tắt, chuyển đổi chỉ số (Nhiệt độ, Độ ẩm không khí, Độ ẩm đất), chọn tháng trong năm (tháng 1–12 hoặc TB cả năm), điều chỉnh độ đục/trong suốt và đảo màu sắc.
-4. Giao Diện Người Dùng (UI/UX) Hiện Đại & Thân Thiện
-Bố cục Accordion Độc lập: Thiết kế Sidebar dạng các thẻ gấp gọn, các mục tự động đẩy xuống khi mở rộng, tích hợp khung cuộn (scrollbar) mượt màng không lo bị tràn hay chèn chữ.
-Nút "Chạy phân tích" cố định (Pinned Footer): Nút kích hoạt luôn ghim ở đáy panel giúp thao tác nhanh chóng.
-Thanh Công Cụ Settings (⚙️): Tích hợp nút bánh răng ở góc Header mở ra Modal cài đặt trọng số ưu tiên (Bảo vệ đất, Tiết kiệm nước, Tối đa lợi nhuận), giúp màn hình chính luôn tinh gọn.
-Tìm Kiếm & Bảo Vệ Tọa Độ Biển Async (Water Guard):
-Tìm kiếm địa điểm thông minh 3 tầng (ArcGIS -> Photon -> Nominatim).
-Tích hợp kiểm tra từ khóa nhanh và truy vấn bất đồng bộ (Reverse Geocoding) để phát hiện tọa độ ngoài đại dương mà không làm treo ứng dụng.
-🛠️ Hướng Dẫn Gỡ Lỗi Nhanh (Troubleshooting)
-Triệu chứng	Kiểm tra / Xử lý
-Lỗi Port 3000 bị chiếm (EADDRINUSE)	Server tự động thử port tiếp theo (3001, 3002...). Để kill process cũ: <br>• PowerShell: Get-NetTCPConnection -LocalPort 3000 -State Listen | % { Stop-Process -Id $_.OwningProcess -Force }<br>• CMD: netstat -ano | findstr :3000 rồi taskkill /PID <PID> /F
-Dữ liệu NASA nghi ngờ sai / dùng Mock	Chạy DEBUG=1 npm start. Xem dòng log nasa fetch để biết nguồn dữ liệu (live, hybrid, hay mock).
-Bản đồ / Địa điểm không tìm thấy	Kiểm tra public/js/map.js và public/js/geocoder.js. Báo lỗi nước biển sẽ hiển thị dạng Toast thông báo.
-Biểu đồ không hiển thị	Kiểm tra public/js/charts.js và mở F12 Console kiểm tra lỗi Chart.js.
-Giao diện không cập nhật sau phân tích	Kiểm tra public/js/render.js (hàm updateUI và renderRiskBlock).
-Heatmap không hiển thị	Kiểm tra file public/data/climate-grid.json. Chạy lệnh npm run dev:synthetic-grid nếu muốn tạo file mô phỏng nhanh.
+Tối ưu hóa chiến lược luân canh dựa trên QUBO (Trọng số Nước, Đất, Lợi nhuận).
+
+Hình phạt Độc canh: Ngăn chặn AI chọn trồng 1 loại cây liên tiếp 3 vụ để bảo vệ đất.
+
+Chạy mô phỏng Statevector với 1024 shots tìm ra tổ hợp tối ưu.
+
+3. Trực Quan Hóa Đa Lớp (Global Heatmap & Bubble Map)
+Heatmap Khí hậu: Canvas nhẹ (~0.4MB RAM) hiển thị Nhiệt độ, Độ ẩm không khí/đất theo 12 tháng.
+
+Bản đồ Vùng trồng (Bubble Map): Trực quan hóa diện tích thu hoạch thực tế của FAO. Bong bóng lớn nhỏ tương ứng với quy mô vùng trồng, đặt chính xác tọa độ (khắc phục lỗi offset của Raster).
+
+4. Tuyến Đường Thương Mại & Kinh Tế (Trade Routes)
+Lấy giá thực tế từ NextFarm API và khoảng cách đường bộ từ OpenRouteService.
+
+Tính toán Ngoại cảnh:
+
+Chi phí vận chuyển đa phương thức (Đường bộ, Đường sắt, Đường biển, Hàng không).
+
+Hệ số địa hình (Đồng bằng, Đồi núi).
+
+Biến động giá nhiên liệu.
+
+Tỷ lệ hao hụt sinh học (Perishability) đối với rau củ tươi.
+
+Trực quan hóa bằng bản đồ đường đi có hiệu ứng chuyển động (Marching Ants) và Modal so sánh lợi nhuận.
+
+5. Giao Diện Người Dùng Hiện Đại (UI/UX)
+Cấu hình linh hoạt (Settings Modal): Thay đổi Theme màu, Bố cục (Trái/Phải), Kích thước (Chuẩn/Thu gọn), Phong cách (Glass/Sci-Fi HUD).
+
+Sidebar Accordion: Các thẻ gấp gọn, tích hợp thanh cuộn, không lo tràn màn hình.
+
+Cố định Footer: Nút "Chạy phân tích" và "Tuyến đường thu mua" luôn ghim ở đáy.
+
 📡 Chi Tiết API Endpoints
 1. POST /api/analyze
-Thực hiện phân tích tổng hợp cho ô đất nông nghiệp.
-
+Thực hiện phân tích nông học và chạy thuật toán lượng tử QAOA.
 Request Body:
 
+json
 {
-  "lat": 10.04,
-  "lon": 105.78,
-  "w_water": 0.33,
-  "w_soil": 0.33,
-  "w_profit": 0.34,
+  "lat": 10.04, "lon": 105.78,
+  "w_water": 0.33, "w_soil": 0.33, "w_profit": 0.34,
   "user_crops": ["Rice", "Soybean", "Maize"]
 }
-Response Structure: Trả về đối tượng JSON gồm dữ liệu vệ tinh (satellite), đánh giá rủi ro (alerts & RISK), dữ liệu 12 tháng (monthly), so sánh các kịch bản (scenarios: baseline, user, quantum) và phần trăm độ tương thích (match_pct).
-2. GET /api/random_coords
-Trả về ngẫu nhiên tọa độ một nông trại nằm trong danh sách vùng nông nghiệp trọng điểm đã qua kiểm duyệt (tránh khu vực đại dương).
+Response: Dữ liệu vệ tinh, rủi ro, biểu đồ 12 tháng, kịch bản (baseline, user, quantum).
+
+2. POST /api/trade_routes
+Tính toán lợi nhuận thương mại và tuyến đường logistics tối ưu.
+Request Body:
+
+json
+{
+  "lat": 10.04, "lon": 105.78,
+  "crops": ["Rice", "Soybean", "Maize", "Peanut", "Veggies"]
+}
+Response: Trả về danh sách các trạm thu mua tốt nhất, khoảng cách, chi phí vận chuyển, tỷ lệ hao hụt và lợi nhuận ròng.
+
+3. GET /api/random_coords
+Trả về tọa độ ngẫu nhiên của các nông trại hợp lệ (tránh đại dương).
+
+🛠️ Hướng Dẫn Gỡ Lỗi Nhanh (Troubleshooting)
+Triệu chứng	Cách xử lý
+Lỗi Port 3000 bị chiếm	Server tự đổi port. Để kill: Get-NetTCPConnection -LocalPort 3000 -State Listen | % { Stop-Process -Id $_.OwningProcess -Force } (PowerShell)
+Bản đồ bong bóng cây trồng không hiện	Chạy lại python scripts/build_crop_popularity.py. Đảm bảo file public/data/crop-points.json tồn tại. Nhấn Ctrl + F5 để xóa cache.
+Lỗi không tải được Tuyến thương mại (500)	Thiếu API Key trong file .env. Hoặc khoảng cách quá xa. Hệ thống sẽ tự động fallback về giá ước tính và khoảng cách chim bay.
+Bản đồ bị lệch màu (Offset)	Tính năng Heatmap khí hậu đôi khi bị ảnh hưởng bởi phép chiếu Web Mercator ở vĩ độ cao. Sử dụng tính năng Bubble Map (Mục 5) để có tọa độ chính xác tuyệt đối.
+Biểu đồ không hiển thị	Mở F12 Console kiểm tra lỗi Chart.js. Đảm bảo API /api/analyze trả về ok: true.

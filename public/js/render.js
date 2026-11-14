@@ -96,6 +96,7 @@ function updateUI(data) {
 
   document.getElementById("data-source-badge").textContent = "Source: " + (data.source || "unknown");
 
+  // FIX: 0 là giá trị hợp lệ → không được hiển thị "N/A"
   const setVal = (id, v, suffix = "") => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -151,7 +152,7 @@ function updateUI(data) {
         showCustomToast("⚠️ Không thể kết nối API cây trồng. Hệ thống đang dùng dữ liệu xấp xỉ.");
       }
     }
-
+  }
   // Alerts
   const alertsList = document.getElementById("alerts-list");
   if (alertsList) {
@@ -182,9 +183,9 @@ function updateUI(data) {
     document.getElementById("user-tags").innerHTML = cropTagsHTML(sc.user.crop_info);
     document.getElementById("user-rank").textContent = "RANK " + sc.user.rank;
     document.getElementById("user-rank").className = "rank-chip rank-" + sc.user.rank;
-    document.getElementById("user-hp-soil").innerHTML   = hpBarHTML("🌱 Soil & Nitrogen HP",  sc.user.soil_hp);
-    document.getElementById("user-hp-water").innerHTML  = hpBarHTML("💧 Water Budget HP",     sc.user.water_hp);
-    document.getElementById("user-hp-profit").innerHTML = hpBarHTML("💰 Economic HP",         sc.user.profit_hp);
+    document.getElementById("user-hp-soil").innerHTML   = hpBarHTML("🌱 Soil & Nitrogen HP",  sc.user.soil_hp,   "soil_hp");
+    document.getElementById("user-hp-water").innerHTML  = hpBarHTML("💧 Water Budget HP",     sc.user.water_hp,  "water_hp");
+    document.getElementById("user-hp-profit").innerHTML = hpBarHTML("💰 Economic HP",         sc.user.profit_hp, "profit_hp");
   }
 
   // Quantum block
@@ -192,10 +193,11 @@ function updateUI(data) {
     document.getElementById("q-tags").innerHTML = cropTagsHTML(sc.quantum.crop_info);
     document.getElementById("q-rank").textContent = "RANK " + sc.quantum.rank;
     document.getElementById("q-rank").className = "rank-chip rank-" + sc.quantum.rank;
-    document.getElementById("q-method").textContent = "⚛️ " + (sc.quantum.method || "—");
-    document.getElementById("q-hp-soil").innerHTML   = hpBarHTML("🌱 Soil & Nitrogen HP",  sc.quantum.soil_hp);
-    document.getElementById("q-hp-water").innerHTML  = hpBarHTML("💧 Water Budget HP",     sc.quantum.water_hp);
-    document.getElementById("q-hp-profit").innerHTML = hpBarHTML("💰 Economic HP",         sc.quantum.profit_hp);
+    const methodSafe = String(sc.quantum.method || "—").replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    document.getElementById("q-method").innerHTML = "⚛️ " + methodSafe + (typeof infoIcon === "function" ? infoIcon("quantum_method") : "");
+    document.getElementById("q-hp-soil").innerHTML   = hpBarHTML("🌱 Soil & Nitrogen HP",  sc.quantum.soil_hp,   "soil_hp");
+    document.getElementById("q-hp-water").innerHTML  = hpBarHTML("💧 Water Budget HP",     sc.quantum.water_hp,  "water_hp");
+    document.getElementById("q-hp-profit").innerHTML = hpBarHTML("💰 Economic HP",         sc.quantum.profit_hp, "profit_hp");
   }
 
   // Radar
@@ -213,5 +215,4 @@ function updateUI(data) {
       if (arenaBtn) arenaBtn.classList.add("active");
     }, 400);
   }
-}
 }

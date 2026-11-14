@@ -1,6 +1,5 @@
-const { CROPS, CROP_KEYS, SEASON_IDX } = require("../config/crops");
-const { round, sum, meanAt, argmax, clamp, THRESHOLDS } = require("../utils/helpers");
-const { Statevector } = require('../quantum/statevector');
+const { CROPS, SEASON_IDX } = require("../config/crops");
+const { round, meanAt, clamp, THRESHOLDS } = require("../utils/helpers");
 
 const SEVERITY_ORDER = { danger: 0, warning: 1, ok: 2 };
 const REQUIRED_FIELDS = ["GWETROOT", "TS", "PRECTOTCORR", "NDVI"];
@@ -9,7 +8,6 @@ function cropName(cd) {
   return (cd.label || "").replace(/^\S+\s+/, "").trim() || cd.label || "?";
 }
 
-// Bổ sung suitabilityMap và marketData để tính điểm lợi nhuận thực tế
 function scoreScenario(cropTrio, data, wWater, wSoil, wProfit, suitabilityMap = {}, marketData = {}) {
   if (!Array.isArray(cropTrio) || cropTrio.length !== 3) {
     throw new RangeError(`cropTrio phải là mảng 3 phần tử, nhận ${cropTrio?.length}`);
@@ -24,7 +22,7 @@ function scoreScenario(cropTrio, data, wWater, wSoil, wProfit, suitabilityMap = 
   }
 
   let soilHp = 60, waterHp = 70, profitHp = 50;
-  const alerts = []; 
+  const alerts = [];
 
   cropTrio.forEach((ckey, si) => {
     const sidx  = SEASON_IDX[si];
@@ -35,7 +33,6 @@ function scoreScenario(cropTrio, data, wWater, wSoil, wProfit, suitabilityMap = 
     const ndv   = meanAt(data.NDVI, sidx);
     const label = cropName(cd);
 
-    // Lấy dữ liệu Động (Dynamic)
     const localSuitability = suitabilityMap[ckey] !== undefined ? suitabilityMap[ckey] : 0.5;
     const marketMultiplier = marketData[ckey] !== undefined ? marketData[ckey] : 1.0;
 
@@ -58,13 +55,16 @@ function scoreScenario(cropTrio, data, wWater, wSoil, wProfit, suitabilityMap = 
     }
 
     // ── PROFIT ───────────────────────────────────────────
-    // Lợi nhuận bị ảnh hưởng bởi Sinh thái vùng và Giá cả thị trường
     let profitDelta = (cd.profit * 0.5) * (localSuitability * 2.0) * marketMultiplier;
-    
-    if (tmp > THRESHOLDS.HEAT_TS_C && cd.heat_tol < 0.4) {
+
+    if (tmp > THRESHOLDS.HEAT_TS_C && (cd.heat_tol ?? 0.5) < 0.45) {
       profitDelta *= 0.52;
       alerts.push({ level: "warning", msg: `Vụ ${si + 1}: ECOSTRESS TS=${tmp.toFixed(1)}°C → ${label} giảm năng suất!` });
+    } else if (cd.T_opt && tmp > cd.T_opt + 3) {
+      profitDelta *= 0.78;
+      alerts.push({ level: "warning", msg: `Vụ ${si + 1}: Nhiệt độ ${tmp.toFixed(1)}°C vượt ngưỡng tối ưu của ${label}!` });
     }
+
     profitDelta *= droughtPenalty;
     if (droughtPenalty < 1.0) {
       alerts.push({ level: "warning", msg: `Vụ ${si + 1}: Thiếu nước làm giảm ${((1 - droughtPenalty) * 100).toFixed(0)}% lợi nhuận của ${label}!` });
@@ -107,122 +107,4 @@ function scoreScenario(cropTrio, data, wWater, wSoil, wProfit, suitabilityMap = 
   };
 }
 
-function buildCostMatrix(data, wWater, wSoil, wProfit) {
-  const cost = SEASON_IDX.map(() => new Array(CROP_KEYS.length).fill(0));
-  
-  SEASON_IDX.forEach((sidx, s) => {
-    const gw  = meanAt(data.GWETROOT, sidx);
-    const tmp = meanAt(data.T2M, sidx);
-    const et0 = meanAt(data.ET0, sidx);
-    const ndv = meanAt(data.NDVI, sidx);
-
-    CROP_KEYS.forEach((ckey, ci) => {
-      const cd = CROPS[ckey];
-      let score = (wProfit * cd.profit) / 100.0;
-
-      // 1. Phạt theo Cân bằng Nước thực tế (ETc vs Soil Water)
-      const ETc = et0 * cd.Kc;
-      const deficitRatio = Math.max(0, (ETc - (gw * 150)) / ETc);
-      score -= wWater * deficitRatio * 0.6;
-
-      // 2. Thưởng cải tạo đất nông học (Legumes + NDVI)
-      score += wSoil * (Math.max(cd.soil, 0) / 35.0) * (0.5 + ndv);
-
-      // 3. Phạt lệch nhiệt độ sinh trưởng tối ưu (T_opt)
-      if (tmp > cd.T_opt) {
-        score -= (tmp - cd.T_opt) / (cd.T_max - cd.T_opt + 1e-6) * 0.4;
-      }
-
-      cost[s][ci] = score;
-    });
-  });
-  return cost;
-}
-
-function runQuantum(data, wWater, wSoil, wProfit) {
-  const cost = buildCostMatrix(data, wWater, wSoil, wProfit);
-  const classicalBest = cost.map((row) => CROP_KEYS[argmax(row)]);
-
-  try {
-    const nCrops = CROP_KEYS.length;
-    const nQubits = 3 * nCrops;
-    const sv = new Statevector(nQubits);
-
-    // DYNAMIC QAOA ANGLE SCALING: Tính góc Gamma tự điều chỉnh theo biên độ Ma trận Chi phí
-    const flatCost = cost.flat();
-    const maxC = Math.max(...flatCost);
-    const minC = Math.min(...flatCost);
-    const deltaE = maxC - minC || 1.0;
-
-    // Gamma được tỉ lệ hóa để pha RZ nằm chuẩn trong khoảng [0, pi]
-    const gamma = Math.PI / (2.0 * deltaE);
-    const beta  = Math.PI / 4.0; // Standard Mixer Angle
-
-    // 1. Layer Hadamard Superposition
-    for (let q = 0; q < nQubits; q++) sv.h(q);
-
-    // 2. Phase Separation Layer
-    for (let s = 0; s < 3; s++) {
-      for (let ci = 0; ci < nCrops; ci++) {
-        sv.rz(s * nCrops + ci, -2.0 * gamma * cost[s][ci]);
-      }
-    }
-
-    // 3. Entanglement Layer (Khóa 1-hot theo từng mùa)
-    for (let s = 0; s < 3; s++) {
-      for (let ci = 0; ci < nCrops - 1; ci++) {
-        const q1 = s * nCrops + ci, q2 = q1 + 1;
-        sv.cx(q1, q2);
-        sv.rz(q2, gamma * 0.5);
-        sv.cx(q1, q2);
-      }
-    }
-
-    // 4. Mixer Layer
-    for (let q = 0; q < nQubits; q++) sv.rx(q, 2.0 * beta);
-
-    const counts = sv.sample(1024);
-    const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-    const top20 = sorted.slice(0, 20).map(([k]) => k);
-
-    const decode = (bs) => {
-      const padded = bs.padStart(nQubits, "0").split("").reverse().join("");
-      return [0, 1, 2].map((s) => {
-        let bestCi = 0, bestVal = -Infinity;
-        for (let ci = 0; ci < nCrops; ci++) {
-          const active = Number(padded[s * nCrops + ci]);
-          const v = active * cost[s][ci];
-          if (v > bestVal) { bestVal = v; bestCi = ci; }
-        }
-        return CROP_KEYS[bestCi];
-      });
-    };
-
-    const decodedCost = (bs) => decode(bs).reduce((t, c, s) => t + cost[s][CROP_KEYS.indexOf(c)], 0);
-
-    let bestBs = top20[0];
-    for (const bs of top20) {
-      if (decodedCost(bs) > decodedCost(bestBs)) bestBs = bs;
-    }
-
-    const total = sum([...counts.values()]);
-    const probs = {};
-    for (const [k, v] of sorted.slice(0, 10)) probs[k.slice(-8)] = round(v / total, 4);
-
-    return {
-      method: `Node.js Dynamic QAOA Simulator (18-qubit, γ=${gamma.toFixed(2)})`,
-      crops: decode(bestBs),
-      probs,
-      ok: true,
-    };
-  } catch (e) {
-    return {
-      method: `Classical Greedy (Quantum error: ${String(e.message).slice(0, 60)})`,
-      crops: classicalBest,
-      probs: {},
-      ok: false,
-    };
-  }
-}
-
-module.exports = { buildCostMatrix, runQuantum, scoreScenario };
+module.exports = { scoreScenario };

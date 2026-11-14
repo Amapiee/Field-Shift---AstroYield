@@ -1,34 +1,35 @@
-// QAOA / QUBO: Dựng ma trận chi phí dựa trên Dữ liệu NASA thuần túy
 const { CROPS, CROP_KEYS, SEASON_IDX } = require("../config/crops");
 const { round, sum, meanAt, argmax } = require("../utils/helpers");
 const { Statevector } = require("./statevector");
 
-function buildCostMatrix(data, wWater, wSoil, wProfit) {
+function buildCostMatrix(data, wWater, wSoil, wProfit, suitabilityMap = {}, marketData = {}) {
   const cost = SEASON_IDX.map(() => new Array(CROP_KEYS.length).fill(0));
-  
+
   SEASON_IDX.forEach((sidx, s) => {
-    const gw = meanAt(data.GWETROOT, sidx);
-    const tmp = meanAt(data.TS, sidx);
+    const gw  = meanAt(data.GWETROOT, sidx);
+    const tmp = meanAt(data.T2M, sidx);
+    const et0 = meanAt(data.ET0, sidx) || 120.0;
     const ndv = meanAt(data.NDVI, sidx);
 
     CROP_KEYS.forEach((ckey, ci) => {
       const cd = CROPS[ckey];
-    const water = - (cd.water_need_mm ?? 0) / 100; // approximate water factor
-    const soil = cd.soil ?? 0;
-    const profit = cd.profit ?? 100;
-      let score = (wProfit * cd.profit) / 100.0;
+      const suitability = suitabilityMap[ckey] !== undefined ? suitabilityMap[ckey] : 0.5;
+      const marketMultiplier = marketData[ckey] !== undefined ? marketData[ckey] : 1.0;
 
-      // Hình phạt từ độ ẩm đất (Nước)
-      score -= wWater * (Math.abs(cd.water) / 35.0) * (1 - gw);
-      
-      // Thưởng cho cây họ Đậu (Cố định đạm)
+      let score = ((wProfit * cd.profit) / 100.0) * (suitability * 2.0) * marketMultiplier;
+
+      // 1. Phạt theo Cân bằng Nước thực tế (ETc vs Soil Water)
+      const ETc = Math.max(et0 * (cd.Kc || 1.0), 1e-6);
+      const deficitRatio = Math.max(0, (ETc - gw * 150) / ETc);
+      score -= wWater * deficitRatio * 0.6;
+
+      // 2. Thưởng cải tạo đất nông học (Legumes + NDVI)
       score += wSoil * (Math.max(cd.soil, 0) / 35.0) * (0.5 + ndv);
-      
-      // Hình phạt nhiệt độ
-      if (tmp > 32) score -= (1 - cd.heat_tol) * 0.28;
-      
-      // Thưởng khả năng chịu hạn
-      if (gw < 0.4) score += cd.drought_tol * 0.18;
+
+      // 3. Phạt lệch nhiệt độ sinh trưởng tối ưu (T_opt)
+      if (tmp > cd.T_opt) {
+        score -= ((tmp - cd.T_opt) / (cd.T_max - cd.T_opt + 1e-6)) * 0.4;
+      }
 
       cost[s][ci] = score;
     });
@@ -36,36 +37,40 @@ function buildCostMatrix(data, wWater, wSoil, wProfit) {
   return cost;
 }
 
-function runQuantum(data, wWater, wSoil, wProfit) {
-  // Không còn cần externalData
-  const cost = buildCostMatrix(data, wWater, wSoil, wProfit);
+function runQuantum(data, wWater, wSoil, wProfit, suitabilityMap = {}, marketData = {}) {
+  const cost = buildCostMatrix(data, wWater, wSoil, wProfit, suitabilityMap, marketData);
   const classicalBest = cost.map((row) => CROP_KEYS[argmax(row)]);
 
   try {
     const nCrops = CROP_KEYS.length;
-    const nQubits = 3 * nCrops; 
+    const nQubits = 3 * nCrops;
     const sv = new Statevector(nQubits);
-    const gamma = 0.82, beta = 0.58;
 
-    // Hadamard superposition
+    const flatCost = cost.flat();
+    const maxC = Math.max(...flatCost);
+    const minC = Math.min(...flatCost);
+    const deltaE = maxC - minC || 1.0;
+
+    const gamma = Math.PI / (2.0 * deltaE);
+    const beta  = Math.PI / 4.0;
+
     for (let q = 0; q < nQubits; q++) sv.h(q);
 
-    // Phase separation — cost encoded as RZ rotations
-    for (let s = 0; s < 3; s++)
-      for (let ci = 0; ci < nCrops; ci++) 
+    for (let s = 0; s < 3; s++) {
+      for (let ci = 0; ci < nCrops; ci++) {
         sv.rz(s * nCrops + ci, -2.0 * gamma * cost[s][ci]);
+      }
+    }
 
-    // Entanglement layer (One-hot approximation within season blocks)
     for (let s = 0; s < 3; s++) {
       for (let ci = 0; ci < nCrops - 1; ci++) {
         const q1 = s * nCrops + ci, q2 = q1 + 1;
         sv.cx(q1, q2);
-        sv.rz(q2, gamma * 0.45);
+        sv.rz(q2, gamma * 0.5);
         sv.cx(q1, q2);
       }
     }
 
-    // Mixer layer
     for (let q = 0; q < nQubits; q++) sv.rx(q, 2.0 * beta);
 
     const counts = sv.sample(1024);
@@ -73,27 +78,23 @@ function runQuantum(data, wWater, wSoil, wProfit) {
     const top20 = sorted.slice(0, 20).map(([k]) => k);
 
     const decode = (bs) => {
-      // Giải mã bitstring sang chuỗi cây trồng
-      const padded = bs.padStart(nQubits, "0").split("").reverse().join(""); 
+      const padded = bs.padStart(nQubits, "0").split("").reverse().join("");
       return [0, 1, 2].map((s) => {
         let bestCi = 0, bestVal = -Infinity;
         for (let ci = 0; ci < nCrops; ci++) {
-          const v = Number(padded[s * nCrops + ci]) * cost[s][ci];
+          const active = Number(padded[s * nCrops + ci]);
+          const v = active * cost[s][ci];
           if (v > bestVal) { bestVal = v; bestCi = ci; }
         }
         return CROP_KEYS[bestCi];
       });
     };
 
-    let bestBs = top20[0];
-    // Tìm bitstring tốt nhất dựa trên chi phí
-    for (const bs of top20) if (decode(bs).reduce((t, c, s) => t + cost[s][CROP_KEYS.indexOf(c)], 0) > decodedCost(bestBs)) bestBs = bs;
-    
-    // Helper để tính cost từ decode ở trên (đã gộp logic trong vòng lặp top20 ở trên, nhưng cần tách rõ hơn)
     const decodedCost = (bs) => decode(bs).reduce((t, c, s) => t + cost[s][CROP_KEYS.indexOf(c)], 0);
-    let finalBestBs = top20[0];
+
+    let bestBs = top20[0];
     for (const bs of top20) {
-       if (decodedCost(bs) > decodedCost(finalBestBs)) finalBestBs = bs;
+      if (decodedCost(bs) > decodedCost(bestBs)) bestBs = bs;
     }
 
     const total = sum([...counts.values()]);
@@ -101,14 +102,14 @@ function runQuantum(data, wWater, wSoil, wProfit) {
     for (const [k, v] of sorted.slice(0, 10)) probs[k.slice(-8)] = round(v / total, 4);
 
     return {
-      method: "Node.js Statevector QAOA Simulator (18-qubit, 1024 shots)",
-      crops: decode(finalBestBs),
+      method: `Node.js Dynamic QAOA Simulator (18-qubit, γ=${gamma.toFixed(2)})`,
+      crops: decode(bestBs),
       probs,
       ok: true,
     };
   } catch (e) {
     return {
-      method: `Classical Greedy (Error: ${String(e.message).slice(0, 60)})`,
+      method: `Classical Greedy (Quantum error: ${String(e.message).slice(0, 60)})`,
       crops: classicalBest,
       probs: {},
       ok: false,

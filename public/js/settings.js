@@ -30,6 +30,8 @@ const I18N_DICT = {
     acc_location: "Tìm vị trí & Bản đồ",
     acc_coords: "Tọa độ Chi tiết",
     acc_heatmap: "Heatmap Khí hậu",
+    acc_cropsmap: "Phân bố cây trồng",
+    acc_trade: "Tuyến Thương Mại Nông Sản",
     acc_alerts: "Cảnh báo Thiên tai",
     season_1: "<span>Vụ Xuân</span> (Tháng 1–4)",
     season_2: "<span>Vụ Hè Thu</span> (Tháng 5–8)",
@@ -106,6 +108,8 @@ const I18N_DICT = {
     acc_location: "Location & Map Layers",
     acc_coords: "Detailed Coordinates",
     acc_heatmap: "Global Climate Heatmap",
+    acc_cropsmap: "Global Crop Distribution",
+    acc_trade: "Global Agri-Trade Routes",
     acc_alerts: "Weather & Disaster Alerts",
     season_1: "<span>Spring Crop</span> (Jan–Apr)",
     season_2: "<span>Summer-Autumn</span> (May–Aug)",
@@ -142,8 +146,8 @@ const I18N_DICT = {
 
     // Right Panel (Telemetry & Quantum Arena)
     tab_telemetry: "📡 Satellite Telemetry",
-    tab_arena: "⚛️ Quantum Arena",
-    match_label: "⚛️ Quantum Match Score",
+    tab_arena: "Quantum Results",
+    match_label: "Quantum Match Score",
     match_desc_init: "Run analysis to compare strategies",
     user_strat_label: "🎮 Your Strategy",
     user_tags_init: "Select crops and run analysis…",
@@ -166,7 +170,7 @@ function switchSettingsTab(paneId, btnEl) {
 const AppSettings = {
   storageKey: 'farmshift_user_prefs_v2',
   state: {
-    lang: 'vi',
+    lang: 'en',
     themeHex: '#10b981',
     themeRgb: '16, 185, 129',
     uiStyle: 'glass',
@@ -176,7 +180,7 @@ const AppSettings = {
 
   init() {
     try {
-      const saved = localStorage.getItem(this.storageKey);
+      const saved = localStorage.getItem(this.storageKey); 
       if (saved) this.state = { ...this.state, ...JSON.parse(saved) };
     } catch (e) {
       console.warn('LocalStorage error:', e);
@@ -237,7 +241,7 @@ const AppSettings = {
 
   // 5. Dịch toàn bộ giao diện (i18n)
   setLanguage(lang) {
-    if (!I18N_DICT[lang]) lang = 'vi';
+    if (!I18N_DICT[lang]) lang = 'en';
     this.state.lang = lang;
     document.documentElement.lang = lang;
     const d = I18N_DICT[lang];
@@ -251,9 +255,9 @@ const AppSettings = {
       if (d[key]) el.textContent = d[key];
     });
 
-    // Dịch tiêu đề 5 thẻ Accordion bên trái
+    // Dịch tiêu đề 7 thẻ Accordion bên trái
     const accTitles = document.querySelectorAll('#left-panel .acc-btn-title span:last-child');
-    const accKeys = ['acc_rotation', 'acc_location', 'acc_coords', 'acc_heatmap', 'acc_alerts'];
+    const accKeys = ['acc_rotation', 'acc_location', 'acc_coords', 'acc_heatmap', 'acc_cropsmap', 'acc_trade', 'acc_alerts'];
     accTitles.forEach((span, idx) => {
       if (d[accKeys[idx]]) span.textContent = d[accKeys[idx]];
     });
@@ -329,7 +333,7 @@ const AppSettings = {
   resetAll() {
     localStorage.removeItem(this.storageKey);
     this.state = {
-      lang: 'vi',
+      lang: 'en',
       themeHex: '#10b981',
       themeRgb: '16, 185, 129',
       uiStyle: 'glass',

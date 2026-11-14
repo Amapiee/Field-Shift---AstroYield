@@ -1,0 +1,106 @@
+/* ─── FarmShift · Info Tooltip Icons (Quantum Result tab) ─────────────────── */
+
+.info-q {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  margin-left: 5px;
+  border-radius: 50%;
+  background: rgba(167, 139, 250, 0.16);
+  border: 1px solid rgba(167, 139, 250, 0.5);
+  color: var(--purple, #a78bfa);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: help;
+  user-select: none;
+  vertical-align: middle;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.info-q:hover,
+.info-q:focus-visible {
+  background: rgba(167, 139, 250, 0.35);
+  transform: scale(1.12);
+  outline: none;
+}
+
+#fs-tooltip-popup {
+  position: fixed;
+  z-index: 9999;
+  width: min(280px, calc(100vw - 16px));
+  padding: 10px 12px 9px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.97);
+  border: 1px solid rgba(167, 139, 250, 0.45);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-family: "Inter", system-ui, sans-serif;
+  opacity: 0;
+  transform: translateY(2px) scale(0.98);
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+#fs-tooltip-popup.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+#fs-tooltip-popup::after {
+  content: "";
+  position: absolute;
+  left: var(--fs-arrow-x, 50%);
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  background: rgba(15, 23, 42, 0.97);
+  border: 1px solid rgba(167, 139, 250, 0.45);
+}
+#fs-tooltip-popup.arrow-bottom::after {
+  bottom: -6px;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
+}
+#fs-tooltip-popup.arrow-top::after {
+  top: -6px;
+  border-bottom: none;
+  border-right: none;
+  transform: rotate(45deg);
+}
+
+.fs-tip-title {
+  font-family: "Plus Jakarta Sans", "Inter", sans-serif;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--cyan, #22d3ee);
+  margin-bottom: 4px;
+}
+.fs-tip-desc {
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #e2e8f0;
+  margin-bottom: 7px;
+}
+.fs-tip-source {
+  font-size: 0.66rem;
+  line-height: 1.4;
+  color: var(--dim, #94a3b8);
+  border-top: 1px dashed rgba(148, 163, 184, 0.25);
+  padding-top: 6px;
+}
+.fs-tip-source-label {
+  font-weight: 700;
+  color: #a78bfa;
+}
+
+/* Icon trong hp-row cần căn giữa cùng dòng với label/% */
+.hp-row {
+  display: flex;
+  align-items: center;
+}
+.hp-label .info-q {
+  margin-left: 4px;
+}

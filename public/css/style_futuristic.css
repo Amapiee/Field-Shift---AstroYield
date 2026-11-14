@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════
-   FARMSHIFT CYBER-HUD FUTURISTIC STYLING
+   FARMSHIFT CYBER-HUD STYLING (PRODUCTION READY)
 ════════════════════════════════════════════════════════ */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -11,13 +11,12 @@
   --bg: #050811;
   --panel-bg: rgba(9, 14, 25, 0.88);
   --glass: rgba(10, 17, 32, 0.85);
-  --glass-lite: rgba(16, 26, 48, 0.75);
   
   --border: rgba(0, 243, 255, 0.25);
   --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-neon: #00f3ff;
   
   --teal: #00f3ff;
+  --primary-rgb: 0, 243, 255;
   --cyan: #38bdf8;
   --gold: #ffb703;
   --red: #ff0055;
@@ -46,10 +45,10 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── Global Scrollbar ── */
+/* ── Custom Scrollbars ── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: rgba(5, 8, 17, 0.6); }
-::-webkit-scrollbar-thumb { background: rgba(0, 243, 255, 0.3); border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: rgba(var(--primary-rgb), 0.35); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--teal); }
 
 /* ── Map ── */
@@ -107,14 +106,14 @@ html, body {
 .status-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
 
 .btn-settings-gear {
-  background: rgba(0, 243, 255, 0.05); border: 1px solid var(--border);
+  background: rgba(var(--primary-rgb), 0.05); border: 1px solid var(--border);
   color: var(--teal); width: 32px; height: 32px; border-radius: var(--radius-sm);
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; transition: all 0.2s var(--ease);
 }
-.btn-settings-gear:hover { background: rgba(0, 243, 255, 0.2); border-color: var(--teal); box-shadow: var(--glow-t); }
+.btn-settings-gear:hover { background: rgba(var(--primary-rgb), 0.2); border-color: var(--teal); box-shadow: var(--glow-t); }
 
-/* ── Left Panel Framework ── */
+/* ── Left Panel Structure ── */
 #left-panel {
   position: fixed; top: 60px; left: 14px; bottom: 14px;
   width: 330px; z-index: 50; display: flex; flex-direction: column;
@@ -131,47 +130,25 @@ html, body {
 .panel-head-title { display: flex; align-items: center; gap: 8px; }
 .tech-tag {
   font-family: 'JetBrains Mono', monospace; font-size: 0.55rem;
-  background: rgba(0, 243, 255, 0.15); color: var(--teal);
+  background: rgba(var(--primary-rgb), 0.15); color: var(--teal);
   padding: 2px 4px; border-radius: 2px; border: 1px solid var(--border);
 }
 .panel-head h2 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.78rem; font-weight: 700; color: var(--text); letter-spacing: 0.08em; }
 .status-indicator { font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; color: var(--green); }
 
-/* ── DIV KHUNG CUỘN CHÍNH DÀNH RIÊNG CHO LEFT PANEL ── */
-.panel-scroll-body {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+/* ── Div Cuộn Chính ── */
+.panel-scroll-container {
+  flex: 1; overflow-y: auto; overflow-x: hidden; padding: 10px;
+  display: flex; flex-direction: column; gap: 8px;
 }
 
-/* Thanh cuộn Neon riêng biệt cho panel-scroll-body */
-.panel-scroll-body::-webkit-scrollbar {
-  width: 5px;
-}
-.panel-scroll-body::-webkit-scrollbar-track {
-  background: rgba(5, 8, 17, 0.5);
-  border-left: 1px solid rgba(0, 243, 255, 0.05);
-}
-.panel-scroll-body::-webkit-scrollbar-thumb {
-  background: rgba(0, 243, 255, 0.25);
-  border-radius: 2px;
-  box-shadow: 0 0 6px rgba(0, 243, 255, 0.3);
-}
-.panel-scroll-body::-webkit-scrollbar-thumb:hover {
-  background: var(--teal);
-}
-
-/* ── Accordion ── */
+/* ── Accordion Cards ── */
 .acc-card {
   background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm); overflow: hidden; transition: all 0.2s var(--ease);
   flex-shrink: 0;
 }
-.acc-card:hover { border-color: rgba(0, 243, 255, 0.3); }
+.acc-card:hover { border-color: rgba(var(--primary-rgb), 0.3); }
 .acc-card.open { border-color: var(--border); background: rgba(15, 23, 42, 0.85); }
 
 .acc-btn {
@@ -183,7 +160,7 @@ html, body {
 .acc-btn-title { display: flex; align-items: center; gap: 8px; }
 .acc-badge {
   font-family: 'JetBrains Mono', monospace; font-size: 0.6rem;
-  color: var(--teal); background: rgba(0, 243, 255, 0.1); padding: 1px 4px; border-radius: 2px;
+  color: var(--teal); background: rgba(var(--primary-rgb), 0.1); padding: 1px 4px; border-radius: 2px;
 }
 .acc-badge.alert-badge { color: var(--red); background: rgba(255, 0, 85, 0.15); font-weight: bold; }
 .acc-arrow { font-size: 0.55rem; color: var(--dim); transition: transform 0.2s var(--ease); }
@@ -204,16 +181,16 @@ select, .search-input {
   border-radius: var(--radius-sm); background: rgba(5, 8, 17, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.12); color: var(--text); outline: none; transition: border-color 0.2s;
 }
-select:focus, .search-input:focus { border-color: var(--teal); box-shadow: 0 0 8px rgba(0, 243, 255, 0.2); }
+select:focus, .search-input:focus { border-color: var(--teal); box-shadow: 0 0 8px rgba(var(--primary-rgb), 0.2); }
 select option { background: #090e19; color: var(--text); }
 
 .search-wrap { display: flex; gap: 6px; }
 .btn-search {
   padding: 7px 10px; font-size: 0.68rem; font-family: 'JetBrains Mono', monospace;
-  font-weight: 600; border-radius: var(--radius-sm); background: rgba(0, 243, 255, 0.15);
+  font-weight: 600; border-radius: var(--radius-sm); background: rgba(var(--primary-rgb), 0.15);
   border: 1px solid var(--border); color: var(--teal); cursor: pointer; transition: all 0.2s;
 }
-.btn-search:hover { background: rgba(0, 243, 255, 0.3); box-shadow: var(--glow-t); }
+.btn-search:hover { background: rgba(var(--primary-rgb), 0.3); box-shadow: var(--glow-t); }
 
 .layer-toggle-wrap { display: flex; gap: 4px; margin-top: 6px; }
 .layer-btn {
@@ -221,7 +198,7 @@ select option { background: #090e19; color: var(--text); }
   background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--dim); font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; font-weight: 600; cursor: pointer;
 }
-.layer-btn.active { background: rgba(0, 243, 255, 0.15); border-color: var(--teal); color: var(--teal); }
+.layer-btn.active { background: rgba(var(--primary-rgb), 0.15); border-color: var(--teal); color: var(--teal); }
 
 .coord-box { display: flex; gap: 6px; }
 .coord-field { flex: 1; padding: 4px 6px; border-radius: var(--radius-sm); background: rgba(5, 8, 17, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); }
@@ -234,7 +211,7 @@ select option { background: #090e19; color: var(--text); }
   color: var(--cyan); font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; font-weight: 600; cursor: pointer;
 }
 
-/* ── Pinned Action Buttons ── */
+/* ── Pinned Foot Buttons ── */
 .panel-foot { padding: 10px; border-top: 1px solid var(--border); background: rgba(5, 8, 17, 0.95); display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
 
 .btn-analyze {
@@ -244,7 +221,7 @@ select option { background: #090e19; color: var(--text); }
   font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.72rem; font-weight: 800;
   letter-spacing: 0.08em; cursor: pointer; transition: all 0.2s; box-shadow: var(--glow-t);
 }
-.btn-analyze:hover { transform: translateY(-1px); box-shadow: 0 0 20px rgba(0, 243, 255, 0.6); }
+.btn-analyze:hover { transform: translateY(-1px); box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.6); }
 
 .btn-trade {
   width: 100%; padding: 9px; border-radius: var(--radius-sm);
@@ -254,15 +231,31 @@ select option { background: #090e19; color: var(--text); }
 }
 .btn-trade:hover { background: rgba(167, 139, 250, 0.25); box-shadow: var(--glow-p); }
 
-/* ── Settings Modal ── */
+/* ── Settings Modal System ── */
 #settings-modal { display: none; position: fixed; inset: 0; z-index: 900; background: rgba(5, 8, 17, 0.85); backdrop-filter: blur(10px); align-items: center; justify-content: center; }
 #settings-modal.active { display: flex; }
-.settings-card { width: 400px; background: rgba(10, 17, 32, 0.95); border: 1px solid var(--teal); border-radius: var(--radius); box-shadow: 0 0 30px rgba(0, 243, 255, 0.2); }
+.settings-card { width: 440px; max-width: 90vw; background: rgba(10, 17, 32, 0.95); border: 1px solid var(--teal); border-radius: var(--radius); box-shadow: 0 0 30px rgba(var(--primary-rgb), 0.25); overflow: hidden; }
+
 .settings-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
 .settings-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.85rem; font-weight: 800; color: var(--teal); letter-spacing: 0.06em; }
 .btn-close-modal { background: none; border: none; color: var(--dim); font-size: 1.1rem; cursor: pointer; }
+
+.settings-tabs { display: flex; border-bottom: 1px solid rgba(255, 255, 255, 0.08); background: rgba(0, 0, 0, 0.25); }
+.stab-btn { flex: 1; padding: 10px; background: none; border: none; border-bottom: 2px solid transparent; color: var(--dim); font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.72rem; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+.stab-btn.active { color: var(--teal); border-bottom-color: var(--teal); background: rgba(var(--primary-rgb), 0.08); }
+
 .settings-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
-.section-label-tech { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--teal); margin-bottom: 6px; }
+.stab-pane { display: none; flex-direction: column; gap: 12px; }
+.stab-pane.active { display: flex; }
+
+.section-label-tech { font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--teal); margin-bottom: 4px; }
+.theme-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.theme-swatch { height: 32px; border-radius: 4px; border: 2px solid transparent; cursor: pointer; transition: all 0.2s; }
+.theme-swatch.active { border-color: #fff; box-shadow: 0 0 10px rgba(255, 255, 255, 0.5); }
+
+.ui-preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.preset-btn { padding: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; cursor: pointer; transition: all 0.2s; }
+.preset-btn.active { background: rgba(var(--primary-rgb), 0.18); border-color: var(--teal); color: var(--teal); }
 
 .slider-group { margin-bottom: 8px; }
 .slider-row { display: flex; justify-content: space-between; font-size: 0.7rem; margin-bottom: 4px; }
@@ -286,7 +279,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: 
   color: var(--dim); font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.72rem; font-weight: 700;
   letter-spacing: 0.06em; cursor: pointer; transition: all 0.2s;
 }
-.tab-btn.active { color: var(--teal); border-bottom-color: var(--teal); background: rgba(0, 243, 255, 0.05); }
+.tab-btn.active { color: var(--teal); border-bottom-color: var(--teal); background: rgba(var(--primary-rgb), 0.05); }
 
 .tab-content { flex: 1; overflow-y: auto; padding: 10px; display: none; }
 .tab-content.active { display: block; }
@@ -299,7 +292,7 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: 
 }
 .sat-tag {
   font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; font-weight: 700;
-  color: var(--teal); background: rgba(0, 243, 255, 0.1); padding: 3px 6px; border-radius: 2px;
+  color: var(--teal); background: rgba(var(--primary-rgb), 0.1); padding: 3px 6px; border-radius: 2px;
 }
 .sat-info { flex: 1; min-width: 0; }
 .sat-name { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.7rem; font-weight: 700; color: var(--text); }
@@ -367,3 +360,13 @@ input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: 
 
 /* ── Map Hint ── */
 #map-hint { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 40; padding: 6px 14px; border-radius: var(--radius-sm); background: rgba(5, 8, 17, 0.9); border: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--teal); pointer-events: none; }
+
+/* ── Trade Routes Modal ── */
+.modal-trade {
+  display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 95%; max-width: 650px; max-height: 85vh; overflow-y: auto;
+  background: rgba(10, 17, 32, 0.95); backdrop-filter: blur(20px);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  z-index: 9999; padding: 20px; color: var(--text); box-shadow: 0 24px 64px rgba(0,0,0,0.8);
+}
+.modal-trade.show { display: block; }

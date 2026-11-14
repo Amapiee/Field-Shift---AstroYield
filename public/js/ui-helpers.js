@@ -37,17 +37,20 @@ function switchTab(name, btn) {
 }
 
 // ─── HP Bar HTML ──────────────────────────────────────────────────────────────
-function hpBarHTML(label, pct) {
+// tipKey (tuỳ chọn): khoá trong PARAM_INFO (xem js/tooltips.js) để hiện icon "?"
+// kèm popup giải thích ý nghĩa + nguồn dữ liệu của thông số này.
+function hpBarHTML(label, pct, tipKey) {
   const v = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0;
   const color = v >= 70
     ? "linear-gradient(90deg,#059669,#10b981)"
     : v >= 40
       ? "linear-gradient(90deg,#d97706,#f59e0b)"
       : "linear-gradient(90deg,#dc2626,#ef4444)";
+  const tip = (tipKey && typeof infoIcon === "function") ? infoIcon(tipKey) : "";
   return `
     <div class="hp-wrap" style="margin-bottom:6px">
       <div class="hp-row">
-        <span class="hp-label">${label}</span>
+        <span class="hp-label">${label}${tip}</span>
         <span class="hp-pct">${v.toFixed(0)}%</span>
       </div>
       <div class="hp-track">

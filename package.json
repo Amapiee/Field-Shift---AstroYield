@@ -7,15 +7,19 @@
     "start": "node server.js",
     "dev": "DEBUG=1 node --watch server.js",
     "test": "node --test",
-    "build:grid": "node scripts/build-climate-grid.js"
+    "build:grid": "node scripts/build-climate-grid.js",
+    "build:trade": "node scripts/build-trade-flows.js",
+    "build:trade:sample": "node scripts/dev/gen-sample-trade.js"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
     "cors": "^2.8.5",
+    "dotenv": "^18.0.10",
     "env": "^0.0.2",
     "express": "^4.19.2",
-    "geolib": "^4.0.2"
+    "geolib": "^4.0.2",
+    "searoute-js": "^0.1.0"
   }
 }

@@ -42,17 +42,24 @@ router.post("/analyze", async (req, res) => {
     const extData = await fetchExternalData(lat, lon, nasa, allCropsToFetch);
     done(`source=${extData.source} ok=${extData.ok}`);
 
+    const suitabilityMap = {};
+    if (extData && extData.data) {
+      for (const [k, v] of Object.entries(extData.data)) {
+        if (v && Number.isFinite(v.suitability)) suitabilityMap[k] = v.suitability;
+      }
+    }
+
     // 3) Chấm điểm
     done = timer("3. scoring baseline + user");
     const baselineCrops = ["Rice", "Rice", "Fallow"];
-    const baseline = scoreScenario(baselineCrops, nasa, wWater, wSoil, wProfit);
-    const user = scoreScenario(userCrops, nasa, wWater, wSoil, wProfit);
+    const baseline = scoreScenario(baselineCrops, nasa, wWater, wSoil, wProfit, suitabilityMap);
+    const user = scoreScenario(userCrops, nasa, wWater, wSoil, wProfit, suitabilityMap);
     done();
 
-    // 4) Lượng tử
+    // 4) Lượng tử 
     done = timer("4. quantum QAOA");
-    const q = runQuantum(nasa, wWater, wSoil, wProfit);
-    const quantum  = scoreScenario(userCrops, nasa, wWater, wSoil, wProfit);
+    const q = runQuantum(nasa, wWater, wSoil, wProfit, suitabilityMap);
+    const quantum = scoreScenario(q.crops, nasa, wWater, wSoil, wProfit, suitabilityMap);
     done(`crops=${q.crops.join(",")} ok=${q.ok}`);
 
     const matchPct = clamp(round(100 - Math.abs(user.overall - quantum.overall) * 1.2, 1), 0, 100);

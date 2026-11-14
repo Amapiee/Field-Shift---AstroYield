@@ -1,13 +1,12 @@
 // ─── Heatmap toàn cầu (Leaflet custom layer) ──────────────────────────────────
-// Phụ thuộc: heatmap-core.js (HeatCore), map.js (map), state.js (MONTHS).
 
 // ══════════════════════════════════════════════════════════════════
 // CÁC HẰNG SỐ CẤU HÌNH
 // ══════════════════════════════════════════════════════════════════
-const HEAT_RES = 4;                       // px màn hình / 1 mẫu
-const HEAT_PAD = 0.2;                     // phần canvas thừa quanh khung nhìn
+const HEAT_RES = 4;                       
+const HEAT_PAD = 0.2;                     
 const HEAT_GRID_URL = "/data/climate-grid.json";
-const CROP_GRID_URL = "/data/crop-popularity-grid.json"; // <-- Đã thêm ở đây
+const CROP_GRID_URL = "/data/crop-popularity-grid.json"; 
 
 const PANE_Z_INDEX = 250;                 
 const DEFAULT_OPACITY = 0.6;              
@@ -103,7 +102,7 @@ const HeatCanvasLayer = L.Layer.extend({
 
 // ── Điều khiển (state + UI) ───────────────────────────────────────────────────
 const Heat = {
-  grid: null,          
+  grids: { climate: null, crop: null }, // <-- Lưu trữ riêng biệt 2 bộ metadata
   decoded: {},         
   loading: null,
   layer: null,
@@ -119,17 +118,15 @@ const Heat = {
   def() { return HEAT_LAYER_DEFS.find(d => d.id === this.defId); },
 
   async loadGrid() {
-    if (this.grid) return;
+    if (this.grids.climate) return;
     if (!this.loading) {
       this.loading = (async () => {
-        // 1. Tải file khí hậu (Bắt buộc phải có)
         const climateRes = await fetch(HEAT_GRID_URL).catch(() => null);
         if (!climateRes || !climateRes.ok) throw new Error("Không tìm thấy file climate-grid.json");
         
         let climateGrid;
         try {
           const text = await climateRes.text();
-          if (!text) throw new Error("File rỗng");
           climateGrid = JSON.parse(text);
         } catch (e) {
           throw new Error("File climate-grid.json bị lỗi hoặc rỗng.");
@@ -138,7 +135,6 @@ const Heat = {
         const err = HeatCore.validateGrid(climateGrid);
         if (err) throw new Error(err);
 
-        // 2. Tải file cây trồng (Có thể lỗi hoặc không có, không được làm sập app)
         let cropGrid = null;
         try {
           const cropRes = await fetch(CROP_GRID_URL);
@@ -150,20 +146,14 @@ const Heat = {
           console.warn("Bỏ qua file cây trồng do lỗi:", e.message);
         }
 
-        // 3. Gộp dữ liệu (Nếu có file cây trồng)
-        if (cropGrid && cropGrid.layers) {
-          Object.assign(climateGrid.layers, cropGrid.layers);
-        }
-
-        // 4. Giải mã từng layer
         for (const d of HEAT_LAYER_DEFS) {
           if (!d.key) continue;
           
-          // Nếu là layer cây trồng nhưng file JSON bị thiếu, bỏ qua không giải mã
           if (d.id.startsWith("pop_")) {
-            if (!climateGrid.layers[d.key]) continue; 
-
-            const dec = HeatCore.decodeStaticLayer(climateGrid, d.key, {
+            if (!cropGrid || !cropGrid.layers || !cropGrid.layers[d.key]) continue; 
+            
+            // Truyền đúng cropGrid vào để lấy metadata của lưới 2 độ
+            const dec = HeatCore.decodeStaticLayer(cropGrid, d.key, {
               percentileLow: HeatCore.CROP_PERCENTILE_LOW,
               percentileHigh: HeatCore.CROP_PERCENTILE_HIGH
             });
@@ -176,8 +166,14 @@ const Heat = {
 
         if (!Object.keys(this.decoded).length) throw new Error("không có layer hợp lệ trong file lưới");
         
-        const { layers, ...meta } = climateGrid;
-        this.grid = meta;
+        // Lưu riêng metadata của 2 lưới
+        const { layers: cLayers, ...climateMeta } = climateGrid;
+        this.grids.climate = climateMeta;
+        
+        if (cropGrid) {
+          const { layers: rLayers, ...cropMeta } = cropGrid;
+          this.grids.crop = cropMeta;
+        }
       })().finally(() => { this.loading = null; });
     }
     return this.loading;
@@ -190,7 +186,12 @@ const Heat = {
     const data = this.month === 0 ? dec.annual : dec.months[this.month - 1];
     const s = d.nice || 1;
     const range = { min: Math.floor(dec.min / s) * s, max: Math.ceil(dec.max / s) * s };
-    return { grid: this.grid, data, range, lut: this.lut, def: d };
+    
+    // CHỌN ĐÚNG LƯỚI DỰA VÀO LOẠI CÂY TRỒNG HAY KHÍ HẬU
+    const isCrop = d.id.startsWith("pop_");
+    const activeGrid = (isCrop && this.grids.crop) ? this.grids.crop : this.grids.climate;
+
+    return { grid: activeGrid, data, range, lut: this.lut, def: d };
   },
 
   refresh() {
@@ -238,10 +239,10 @@ const Heat = {
     this.el("heat-controls").classList.add("show");
     this.refresh();
     
-    if (this.grid.source === "synthetic") {
+    if (this.grids.climate.source === "synthetic") {
       this.setStatus("⚠️ Đang dùng dữ liệu MÔ PHỎNG (demo). Chạy `npm run build:grid` để thay bằng NASA POWER thật.", "warn");
     } else {
-      this.setStatus(`Nguồn: ${this.grid.source} · lưới ${this.grid.step}°`, "");
+      this.setStatus(`Nguồn: ${this.grids.climate.source} · lưới ${this.grids.climate.step}°`, "");
     }
   },
 
@@ -259,7 +260,9 @@ const Heat = {
     const out = this.el("heat-hover");
     if (!st) return;
     const lon = ((latlng.lng + LON_HALF_CIRCLE) % LON_FULL_CIRCLE + LON_FULL_CIRCLE) % LON_FULL_CIRCLE - LON_HALF_CIRCLE;
-    const o = HeatCore.sample(this.grid, st.data, latlng.lat, lon, { v: NaN, w: 0 });
+    
+    // Truyền đúng st.grid (lưới cây trồng hoặc khí hậu) vào hàm sample
+    const o = HeatCore.sample(st.grid, st.data, latlng.lat, lon, { v: NaN, w: 0 });
     const pos = `${latlng.lat.toFixed(1)}°, ${lon.toFixed(1)}°`;
     out.textContent = o.w >= MIN_HOVER_WEIGHT && o.v === o.v ? `🖱️ ${pos}: ${st.def.fmt(o.v)}` : `🖱️ ${pos}: không có dữ liệu`;
   },
