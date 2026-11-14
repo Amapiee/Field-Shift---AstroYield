@@ -19,11 +19,6 @@ const HEAT_LAYER_DEFS = [
   { id: "temp", key: "T2M",      label: "🌡️ Nhiệt độ không khí (2 m)",         nice: 5,    fmt: v => v.toFixed(1) + " °C" },
   { id: "rh",   key: "RH2M",     label: "💧 Độ ẩm không khí (RH2M)",            nice: 5,    fmt: v => v.toFixed(0) + " %" },
   { id: "soil", key: "GWETROOT", label: "🌱 Độ ẩm đất vùng rễ (SMAP/GWETROOT)", nice: 0.05, fmt: v => (v * 100).toFixed(0) + " %" },
-  { id: "pop_rice",    key: "Rice",    label: "🌾 Độ phổ biến Lúa (Diện tích thu hoạch)",    nice: 1000, fmt: v => v.toFixed(0) + " ha" },
-  { id: "pop_maize",   key: "Maize",   label: "🌽 Độ phổ biến Ngô (Diện tích thu hoạch)",    nice: 1000, fmt: v => v.toFixed(0) + " ha" },
-  { id: "pop_soy",     key: "Soybean", label: "🫘 Độ phổ biến Đậu Tương (Diện tích thu hoạch)", nice: 1000, fmt: v => v.toFixed(0) + " ha" },
-  { id: "pop_peanut",  key: "Peanut",  label: "🥜 Độ phổ biến Lạc (Diện tích thu hoạch)",    nice: 1000, fmt: v => v.toFixed(0) + " ha" },
-  { id: "pop_veggies", key: "Veggies", label: "🥬 Độ phổ biến Rau Màu (Diện tích thu hoạch)", nice: 1000, fmt: v => v.toFixed(0) + " ha" },
 ];
 
 // ── Lớp canvas ────────────────────────────────────────────────────────────────

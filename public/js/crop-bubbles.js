@@ -74,11 +74,12 @@ function aggregatePoints(points, maxBubbles = 50) {
   return aggregated;
 }
 
-function getGlowSize(val, maxVal, minR = 10, maxR = 60) {
-  if (maxVal === 0 || !Number.isFinite(val)) return minR;
-  // Dùng căn bậc hai để độ tăng kích thước có sự "giảm dần" (taper) tự nhiên
-  const ratio = Math.sqrt(val) / Math.sqrt(maxVal);
-  return minR + ratio * (maxR - minR);
+function getGlowSize(val, maxVal) {
+  // Giảm minR và maxR xuống (Ví dụ: từ 5px đến 25px)
+  const minR = 5, maxR = 25; 
+  if (maxVal === 0) return minR;
+  // Dùng Math.pow(val, 0.3) thay vì Math.sqrt để các điểm nhỏ không bị phình to quá mức
+  return minR + (Math.pow(val, 0.3) / Math.pow(maxVal, 0.3)) * (maxR - minR);
 }
 
 async function drawCropBubbles(cropKey) {

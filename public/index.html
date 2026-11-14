@@ -136,13 +136,13 @@
     </div>
   </div>
   <div class="header-badges">
-    <span class="hbadge hbadge-nasa">NASA POWER</span> 
-    <span class="hbadge hbadge-nasa">SMAP</span>
-    <span class="hbadge hbadge-nasa">GPM</span>
-    <span class="hbadge hbadge-nasa">ECOSTRESS</span>
-    <span class="hbadge hbadge-nasa">MODIS</span>
-    <span class="hbadge hbadge-q">Qiskit QAOA</span>
-    <span class="hbadge hbadge-src" id="data-source-badge">Source: —</span>
+    <span class="hbadge hbadge-nasa" data-tip-key="badge_power" tabindex="0" role="button" aria-label="Thông tin">NASA POWER</span> 
+    <span class="hbadge hbadge-nasa" data-tip-key="badge_smap" tabindex="0" role="button" aria-label="Thông tin">SMAP</span>
+    <span class="hbadge hbadge-nasa" data-tip-key="badge_gpm" tabindex="0" role="button" aria-label="Thông tin">GPM</span>
+    <span class="hbadge hbadge-nasa" data-tip-key="badge_ecostress" tabindex="0" role="button" aria-label="Thông tin">ECOSTRESS</span>
+    <span class="hbadge hbadge-nasa" data-tip-key="badge_modis" tabindex="0" role="button" aria-label="Thông tin">MODIS</span>
+    <span class="hbadge hbadge-q" data-tip-key="badge_qaoa" tabindex="0" role="button" aria-label="Thông tin">Qiskit QAOA</span>
+    <span class="hbadge hbadge-src" id="data-source-badge" data-tip-key="badge_source" tabindex="0" role="button" aria-label="Thông tin">Source: —</span>
     <button class="btn-settings-gear" onclick="toggleHoverMode()" id="btn-autohide-mode" title="Toggle Auto-Hide Panels on Hover">📌</button>
     <button class="btn-settings-gear" onclick="toggleSettingsModal()" title="System Settings &amp; Preferences">⚙️</button>
   </div>
@@ -430,27 +430,27 @@
   <div class="tab-content active" id="tab-telemetry">
     <div class="sat-row">
       <div class="sat-icon">☀️</div>
-      <div class="sat-info"><div class="sat-name">NASA POWER</div><div class="sat-desc">T2M · Radiation · LST</div></div>
+      <div class="sat-info"><div class="sat-name">NASA POWER<span class="info-q" data-tip-key="power_temp" tabindex="0" role="button" aria-label="Thông tin">?</span></div><div class="sat-desc">T2M · Radiation · LST</div></div>
       <div class="sat-values"><div class="sat-val-main" id="sv-temp">—</div><div class="sat-val-sub" id="sv-temp-rng">Avg Temperature</div></div>
     </div>
     <div class="sat-row">
       <div class="sat-icon">💧</div>
-      <div class="sat-info"><div class="sat-name">NASA SMAP · Crop-CASMA</div><div class="sat-desc">GWETTOP · GWETROOT</div></div>
+      <div class="sat-info"><div class="sat-name">NASA SMAP · Crop-CASMA<span class="info-q" data-tip-key="smap_moisture" tabindex="0" role="button" aria-label="Thông tin">?</span></div><div class="sat-desc">GWETTOP · GWETROOT</div></div>
       <div class="sat-values"><div class="sat-val-main" id="sv-gwet">—</div><div class="sat-val-sub" id="sv-gwet-sub">Root Zone Moisture</div></div>
     </div>
     <div class="sat-row">
       <div class="sat-icon">🌧️</div>
-      <div class="sat-info"><div class="sat-name">NASA GPM IMERG</div><div class="sat-desc">PRECTOTCORR · Erosion Risk</div></div>
+      <div class="sat-info"><div class="sat-name">NASA GPM IMERG<span class="info-q" data-tip-key="gpm_rain" tabindex="0" role="button" aria-label="Thông tin">?</span></div><div class="sat-desc">PRECTOTCORR · Erosion Risk</div></div>
       <div class="sat-values"><div class="sat-val-main" id="sv-rain">—</div><div class="sat-val-sub" id="sv-rain-sub">Avg Rainfall/Month</div></div>
     </div>
     <div class="sat-row">
       <div class="sat-icon">🌡️</div>
-      <div class="sat-info"><div class="sat-name">ECOSTRESS / MODIS LST</div><div class="sat-desc">TS · ESI · Heat Stress</div></div>
+      <div class="sat-info"><div class="sat-name">ECOSTRESS / MODIS LST<span class="info-q" data-tip-key="ecostress_heat" tabindex="0" role="button" aria-label="Thông tin">?</span></div><div class="sat-desc">TS · ESI · Heat Stress</div></div>
       <div class="sat-values"><div class="sat-val-main" id="sv-ts">—</div><div class="sat-val-sub" id="sv-esi">ESI —</div></div>
     </div>
     <div class="sat-row">
       <div class="sat-icon">🌿</div>
-      <div class="sat-info"><div class="sat-name">MODIS NDVI + SoilGrids</div><div class="sat-desc">Vegetation Health · Fertility</div></div>
+      <div class="sat-info"><div class="sat-name">MODIS NDVI + SoilGrids<span class="info-q" data-tip-key="modis_ndvi" tabindex="0" role="button" aria-label="Thông tin">?</span></div><div class="sat-desc">Vegetation Health · Fertility</div></div>
       <div class="sat-values"><div class="sat-val-main" id="sv-ndvi">—</div><div class="sat-val-sub" id="sv-ndvi-sub">NDVI Avg</div></div>
     </div>
 

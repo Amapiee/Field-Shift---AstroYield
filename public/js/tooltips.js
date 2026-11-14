@@ -5,33 +5,112 @@
 const PARAM_INFO = {
   match_pct: {
     title: "⚖️ Quantum Match Rating",
-    desc: "So sánh điểm tổng (overall score) của chiến lược luân canh bạn chọn so với chiến lược tối ưu mà thuật toán lượng tử QAOA tìm ra. 100% nghĩa là bạn đã trùng với lựa chọn tối ưu; càng thấp, QAOA càng có một tổ hợp cây trồng tốt hơn theo trọng số Đất/Nước/Lợi nhuận bạn đặt.",
-    source: "Suy ra từ 2 điểm overall (User vs Quantum) — src/services/scoring.js, src/routes/api.js. Không phải số đo vệ tinh trực tiếp, mà là kết quả tính toán nội bộ."
+    desc: "Cho biết chiến lược luân canh bạn chọn \"ăn khớp\" đến đâu với gợi ý tối ưu của AI lượng tử. 100% nghĩa là bạn đã chọn đúng tổ hợp cây trồng tốt nhất; càng thấp, nghĩa là có một lựa chọn khác sẽ cân bằng Đất – Nước – Lợi nhuận tốt hơn so với lựa chọn hiện tại của bạn.",
+    source: "Chỉ số tổng hợp, tính toán nội bộ từ các thông số vệ tinh và kinh tế bên dưới (không phải số đo trực tiếp từ một vệ tinh nào)."
   },
   rank: {
     title: "🏅 Rank (S / A / B / C)",
-    desc: "Xếp hạng tổng quát của một chiến lược 3 vụ, quy đổi từ điểm overall = (w_soil·SoilHP + w_water·WaterHP + w_profit·ProfitHP) / tổng trọng số. S ≥ 80 · A ≥ 67 · B ≥ 44 · còn lại là C.",
-    source: "Công thức chấm điểm nội bộ — src/services/scoring.js (hàm scoreScenario). Trọng số w_water/w_soil/w_profit do bạn chỉnh trong Settings → Farming Weights."
+    desc: "Điểm xếp hạng chung cho một chiến lược 3 vụ, tổng hợp từ 3 chỉ số Đất, Nước và Lợi nhuận bên dưới theo đúng tỉ lệ ưu tiên bạn đã đặt ở Settings. S là tốt nhất, lần lượt đến A, B, và C là cần cân nhắc lại.",
+    source: "Chỉ số tổng hợp, tính toán nội bộ từ các thông số vệ tinh và kinh tế bên dưới."
   },
   soil_hp: {
     title: "🌱 Soil & Nitrogen HP",
-    desc: "\"Sức khoẻ\" đất ước tính sau 3 vụ: cộng dồn hệ số cải tạo/bạc màu đất riêng của từng loại cây (vd cây họ đậu như Soybean, Peanut giúp cố định đạm, cộng thêm điểm theo NDVI), và trừ điểm nếu bỏ đất trống (Fallow) gặp mưa lớn gây xói mòn.",
-    source: "Hệ số sinh học cây trồng (soil) — src/config/crops.js · NDVI phái sinh từ NASA POWER (bức xạ, độ ẩm) — src/services/nasa.js, được dùng như proxy cho MODIS NDVI thực tế."
+    desc: "Ước tính \"sức khoẻ\" của đất sau khi trồng đủ 3 vụ. Cây họ đậu (như đậu nành, đậu phộng) giúp cải tạo đất nên tăng điểm; để đất bỏ trống trong mùa mưa lớn dễ gây xói mòn nên bị trừ điểm.",
+    source: "Dữ liệu thực vật/độ che phủ NDVI từ vệ tinh NASA, kết hợp đặc tính sinh học của từng loại cây trồng."
   },
   water_hp: {
     title: "💧 Water Budget HP",
-    desc: "Ngân sách nước còn lại sau 3 vụ: mỗi cây trồng cộng/trừ điểm theo nhu cầu nước riêng (hệ số water). Nếu độ ẩm tầng rễ (GWETROOT) xuống dưới ngưỡng hạn và cây đó háo nước, hệ thống phạt nặng điểm và cảnh báo nguy cơ hạn hán.",
-    source: "NASA SMAP · Crop-CASMA — GWETROOT (độ ẩm đất tầng rễ), tham chiếu NASA POWER làm nguồn dự phòng khi API lỗi — src/services/nasa.js · Ngưỡng hạn & hệ số nước cây trồng — src/utils/helpers.js, src/config/crops.js."
+    desc: "Ước tính lượng nước còn lại trong đất sau khi trồng đủ 3 vụ. Nếu đất đang khô mà bạn chọn cây cần nhiều nước, điểm sẽ giảm mạnh và hệ thống cảnh báo nguy cơ hạn hán.",
+    source: "Dữ liệu độ ẩm đất tầng rễ từ vệ tinh NASA SMAP, kết hợp nhu cầu nước của từng loại cây trồng."
   },
   profit_hp: {
     title: "💰 Economic HP",
-    desc: "Ước tính lợi nhuận: hệ số lợi nhuận gốc của cây × độ phù hợp vùng trồng (local suitability) × hệ số thị trường, rồi bị giảm nếu nhiệt độ đất (TS) vượt ngưỡng chịu nhiệt của cây hoặc nếu thiếu nước nghiêm trọng (WaterHP < 40).",
-    source: "Hệ số lợi nhuận/chịu nhiệt cây trồng — src/config/crops.js · Nhiệt độ bề mặt (TS) — NASA ECOSTRESS/MODIS LST · Độ phù hợp vùng & giá thị trường — API bên thứ 3 (CartoDrone/Every.Farm) hoặc công thức nội bộ khi API lỗi — src/services/external.js, src/services/scoring.js."
+    desc: "Ước tính khả năng sinh lời của chiến lược luân canh, dựa trên giá trị kinh tế của từng cây và mức độ phù hợp của vùng đất. Lợi nhuận sẽ giảm nếu thời tiết quá nóng vượt ngưỡng chịu nhiệt của cây, hoặc nếu thiếu nước nghiêm trọng.",
+    source: "Nhiệt độ bề mặt đất từ vệ tinh NASA ECOSTRESS/MODIS, kết hợp dữ liệu giá cả và độ phù hợp vùng trồng từ các API nông nghiệp bên thứ ba (CartoDrone, Every.Farm)."
   },
   quantum_method: {
     title: "⚛️ QAOA Method",
-    desc: "Tên thuật toán/engine đã chọn ra tổ hợp 3 vụ tối ưu. \"Node.js Dynamic QAOA Simulator (18-qubit, γ=...)\" nghĩa là một mô phỏng QAOA (Quantum Approximate Optimization Algorithm) chạy trên statevector 18-qubit với tham số góc quay γ; nếu mô phỏng lỗi, hệ thống tự chuyển sang thuật toán tham lam cổ điển (Classical Greedy) để vẫn trả kết quả.",
-    source: "Bộ mô phỏng Qubit tự viết (Hadamard/RZ/CX/RX, 1024 shots) — src/quantum/statevector.js, src/quantum/qaoa.js. Hàm chi phí QUBO dùng chính 3 chỉ số Soil/Water/Profit HP ở trên, cộng hình phạt độc canh (3 vụ liên tiếp cùng 1 cây)."
+    desc: "Tên của \"bộ não\" đã tính ra tổ hợp 3 vụ tối ưu — một thuật toán mô phỏng máy tính lượng tử (QAOA) để tìm phương án cân bằng tốt nhất giữa Đất, Nước và Lợi nhuận, đồng thời tránh gợi ý trồng lặp lại một loại cây quá nhiều vụ liên tiếp (dễ làm bạc màu đất). Nếu việc mô phỏng gặp sự cố, hệ thống sẽ tự chuyển sang một thuật toán dự phòng đơn giản hơn để vẫn đưa ra kết quả.",
+    source: "Kết quả tính toán nội bộ, không đến từ một bộ dữ liệu vệ tinh hay bên thứ ba nào — chỉ dựa trên 3 chỉ số Đất/Nước/Lợi nhuận ở trên."
+  },
+
+  // ─── Satellite Intel tab ───────────────────────────────────────────────
+  power_temp: {
+    title: "☀️ Nhiệt độ không khí (T2M)",
+    desc: "Nhiệt độ không khí trung bình đo ở độ cao 2m so với mặt đất tại toạ độ nông trại của bạn, tính trung bình theo từng tháng trong năm. Đây là chỉ số cơ bản để biết khu vực của bạn nóng/lạnh ra sao theo mùa.",
+    source: "Vệ tinh và mô hình tái phân tích khí hậu của NASA POWER."
+  },
+  smap_moisture: {
+    title: "💧 Độ ẩm đất tầng rễ",
+    desc: "Lượng nước có sẵn trong lớp đất nơi rễ cây hấp thụ, thể hiện bằng tỉ lệ phần trăm. Số càng thấp nghĩa là đất càng khô, cây càng dễ thiếu nước và có nguy cơ hạn hán cao hơn trong tháng đó.",
+    source: "Vệ tinh NASA SMAP (Soil Moisture Active Passive) và chương trình Crop-CASMA."
+  },
+  gpm_rain: {
+    title: "🌧️ Lượng mưa trung bình",
+    desc: "Lượng mưa ước tính rơi xuống khu vực của bạn mỗi tháng (mm/tháng). Mưa quá ít kéo dài dễ dẫn đến hạn hán; mưa quá nhiều, dồn dập trong thời gian ngắn có thể gây ngập úng hoặc xói mòn đất nếu đất đang bỏ trống.",
+    source: "Vệ tinh NASA GPM IMERG (Global Precipitation Measurement)."
+  },
+  ecostress_heat: {
+    title: "🌡️ Nhiệt độ bề mặt & Sốc nhiệt",
+    desc: "Nhiệt độ thực tế trên bề mặt đất/tán lá (không phải nhiệt độ không khí), cho biết cây trồng có đang bị \"sốc nhiệt\" hay không. Chỉ số ESI (Evaporative Stress Index) đi kèm cho biết mức độ cây đang thiếu nước để làm mát qua thoát hơi — ESI càng thấp, cây càng stress.",
+    source: "Vệ tinh NASA ECOSTRESS và MODIS Land Surface Temperature (LST)."
+  },
+  modis_ndvi: {
+    title: "🌿 Chỉ số thực vật & Độ phì nhiêu",
+    desc: "NDVI cho biết mức độ xanh tốt, khoẻ mạnh của thảm thực vật tại khu vực (càng gần 1 càng xanh tốt). Kết hợp với dữ liệu độ phì nhiêu của đất để đánh giá đất có đang thuận lợi cho cây trồng phát triển hay không.",
+    source: "Vệ tinh MODIS (chỉ số NDVI) kết hợp cơ sở dữ liệu đất toàn cầu SoilGrids."
+  },
+  risk_dri: {
+    title: "🌵 Chỉ số rủi ro hạn hán (DRI)",
+    desc: "Ước tính khả năng xảy ra hạn hán trong các tháng tới, dựa trên độ khô của đất và lượng mưa thấp kéo dài. Phần trăm càng cao, rủi ro mất mùa vì thiếu nước càng lớn.",
+    source: "Tính toán từ độ ẩm đất (NASA SMAP) và lượng mưa (NASA GPM IMERG)."
+  },
+  risk_fri: {
+    title: "🌊 Chỉ số rủi ro lũ lụt (FRI)",
+    desc: "Ước tính khả năng xảy ra ngập úng/lũ lụt trong các tháng tới, dựa trên các đợt mưa cực đoan dồn dập. Phần trăm càng cao, rủi ro hư hại mùa màng vì ngập úng càng lớn.",
+    source: "Tính toán từ dữ liệu lượng mưa cực đoan của NASA GPM IMERG."
+  },
+  ext_api: {
+    title: "🌍 Độ phù hợp cây trồng & Giá thị trường",
+    desc: "Thông tin về mức độ phù hợp của vùng đất với từng loại cây và giá thu mua tham khảo trên thị trường, giúp tính toán chỉ số Lợi nhuận (Economic HP) chính xác hơn theo vị trí thực tế của bạn. Nếu dịch vụ này tạm thời không phản hồi, hệ thống sẽ tự dùng công thức ước tính nội bộ thay thế.",
+    source: "API nông nghiệp của bên thứ ba (CartoDrone, Every.Farm); dự phòng bằng công thức ước tính nội bộ khi không kết nối được."
+  },
+
+  // ─── Header badges (thanh dataset trên cùng) ───────────────────────────
+  badge_power: {
+    title: "🛰️ NASA POWER",
+    desc: "Kho dữ liệu thời tiết của NASA, ghi lại nắng, nhiệt độ và mưa tại mọi nơi trên Trái Đất trong nhiều năm liền. App dùng dữ liệu này để biết khí hậu trung bình từng tháng ở nông trại của bạn, giống như xem \"lịch thời tiết nhiều năm\" của khu vực.",
+    source: "NASA POWER (Prediction Of Worldwide Energy Resources) — dữ liệu khí hậu vệ tinh của NASA."
+  },
+  badge_smap: {
+    title: "🛰️ NASA SMAP",
+    desc: "Một vệ tinh chuyên \"nhìn xuyên\" mặt đất từ không gian để đo xem đất đang ẩm hay khô. Nhờ vậy app có thể cảnh báo sớm nguy cơ thiếu nước/hạn hán mà không cần bạn tự đo đất ngoài ruộng.",
+    source: "NASA SMAP (Soil Moisture Active Passive)."
+  },
+  badge_gpm: {
+    title: "🛰️ NASA GPM",
+    desc: "Một nhóm vệ tinh theo dõi lượng mưa trên khắp thế giới theo thời gian gần thực. App dùng để biết khu vực của bạn mưa nhiều hay ít hơn bình thường, giúp phát hiện sớm nguy cơ hạn hán hoặc ngập úng.",
+    source: "NASA GPM IMERG (Global Precipitation Measurement)."
+  },
+  badge_ecostress: {
+    title: "🛰️ NASA ECOSTRESS",
+    desc: "Một thiết bị gắn trên Trạm Vũ trụ Quốc tế, đo nhiệt độ thật sự trên bề mặt đất và cây trồng (khác với nhiệt độ không khí bạn thấy trên dự báo thời tiết). Nhờ đó app phát hiện được khi nào cây đang bị \"sốc nhiệt\" vì nắng nóng gay gắt.",
+    source: "NASA ECOSTRESS (ECOsystem Spaceborne Thermal Radiometer Experiment)."
+  },
+  badge_modis: {
+    title: "🛰️ NASA MODIS",
+    desc: "Một thiết bị vệ tinh chụp ảnh toàn bộ Trái Đất mỗi ngày, dùng để tính xem cây cối, mùa màng ở một khu vực đang xanh tốt hay héo úa (gọi là chỉ số NDVI). Giúp app đánh giá sức khoẻ thực vật mà không cần đi khảo sát thực địa.",
+    source: "NASA MODIS (Moderate Resolution Imaging Spectroradiometer)."
+  },
+  badge_qaoa: {
+    title: "⚛️ Qiskit QAOA",
+    desc: "Đây là \"bộ não\" tính toán của app — một thuật toán mô phỏng theo cách máy tính lượng tử hoạt động, dùng để thử rất nhiều tổ hợp cây trồng khác nhau và chọn ra 3 vụ luân canh cân bằng tốt nhất giữa đất, nước và lợi nhuận.",
+    source: "Mô phỏng theo kiến trúc Qiskit (bộ công cụ tính toán lượng tử của IBM), chạy nội bộ trong app."
+  },
+  badge_source: {
+    title: "📡 Nguồn dữ liệu đang dùng",
+    desc: "Cho biết số liệu bạn đang xem lấy trực tiếp từ vệ tinh NASA theo thời gian thực, hay app đang tạm dùng số liệu ước tính nội bộ (vì mất kết nối internet hoặc máy chủ NASA đang bận). Số liệu ước tính vẫn được tính toán hợp lý dựa trên vị trí của bạn, chỉ không \"tươi mới\" bằng dữ liệu trực tiếp.",
+    source: "Trạng thái kết nối tới các API vệ tinh NASA tại thời điểm bạn chạy phân tích."
   }
 };
 
@@ -103,25 +182,28 @@ function infoIcon(key) {
     }
   }
 
+  // Bắt mọi phần tử có data-tip-key: icon "?" (.info-q) lẫn các badge hover-thẳng (.hbadge)
+  const TIP_SELECTOR = "[data-tip-key]";
+
   document.addEventListener("mouseover", (e) => {
-    const icon = e.target.closest(".info-q");
+    const icon = e.target.closest(TIP_SELECTOR);
     if (icon) showTip(icon);
   });
   document.addEventListener("mouseout", (e) => {
-    const icon = e.target.closest(".info-q");
+    const icon = e.target.closest(TIP_SELECTOR);
     if (icon) hideTip(false);
   });
   document.addEventListener("focusin", (e) => {
-    const icon = e.target.closest(".info-q");
+    const icon = e.target.closest(TIP_SELECTOR);
     if (icon) showTip(icon);
   });
   document.addEventListener("focusout", (e) => {
-    const icon = e.target.closest(".info-q");
+    const icon = e.target.closest(TIP_SELECTOR);
     if (icon) hideTip(true);
   });
   // Hỗ trợ cảm ứng (mobile): chạm để bật/tắt, chạm ra ngoài để đóng
   document.addEventListener("click", (e) => {
-    const icon = e.target.closest(".info-q");
+    const icon = e.target.closest(TIP_SELECTOR);
     if (icon) {
       e.preventDefault();
       e.stopPropagation();

@@ -104,3 +104,16 @@
 .hp-label .info-q {
   margin-left: 4px;
 }
+
+/* Header badges (NASA POWER / SMAP / GPM / ECOSTRESS / MODIS / Qiskit QAOA / Source)
+   cũng hover được trực tiếp để xem giải thích, không cần icon "?" riêng */
+.header-badges [data-tip-key] {
+  cursor: help;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+.header-badges [data-tip-key]:hover,
+.header-badges [data-tip-key]:focus-visible {
+  filter: brightness(1.25);
+  transform: translateY(-1px);
+  outline: none;
+}

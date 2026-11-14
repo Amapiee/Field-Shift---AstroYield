@@ -12,7 +12,7 @@ function ensureRiskBlock() {
   block.innerHTML = `
     <div class="sat-icon">🌊</div>
     <div class="sat-info">
-      <div class="sat-name">RỦI RO THIÊN TAI</div>
+      <div class="sat-name">RỦI RO THIÊN TAI<span class="info-q" data-tip-key="risk_dri" tabindex="0" role="button" aria-label="Thông tin">?</span></div>
       <div class="sat-desc">Hạn hán (DRI) · Lũ lụt (FRI)</div>
     </div>
     <div class="sat-values">
@@ -48,7 +48,7 @@ function ensureExternalBlock() {
   block.innerHTML = `
     <div class="sat-icon">🌍</div>
     <div class="sat-info">
-      <div class="sat-name" id="ext-api-title">CROP SUITABILITY API</div>
+      <div class="sat-name" id="ext-api-title">CROP SUITABILITY API<span class="info-q" data-tip-key="ext_api" tabindex="0" role="button" aria-label="Thông tin">?</span></div>
       <div class="sat-desc" id="ext-api-desc">CartoDrone + Every.Farm</div>
     </div>
     <div class="sat-values">
@@ -84,8 +84,8 @@ function renderRiskBlock(sat) {
   const bars = document.getElementById("risk-bars");
   if (bars && typeof hpBarHTML === "function") {
     bars.innerHTML =
-      hpBarHTML("🌵 Hạn hán (DRI)", rd * 100) +
-      hpBarHTML("🌊 Lũ lụt (FRI)",  rf * 100);
+      hpBarHTML("🌵 Hạn hán (DRI)", rd * 100, "risk_dri") +
+      hpBarHTML("🌊 Lũ lụt (FRI)",  rf * 100, "risk_fri");
   }
 }
 

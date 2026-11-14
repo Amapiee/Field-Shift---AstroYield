@@ -33,34 +33,35 @@ def build_crop_points():
         points = []
         try:
             da = rioxarray.open_rasterio(url, masked=True)
-            
-            # Resample về lưới 2 độ
-            resampled = da.rio.reproject(
-                "EPSG:4326",
-                resolution=GRID_RES, # Dùng resolution thay vì shape
-                resampling=Resampling.sum
-            )
-
+            # BƯỚC 1: SỬA KINH ĐỘ TRƯỚC KHI REPROJECT (Cực kỳ quan trọng)
+            # Cuộn dữ liệu từ 0-360 về -180-180
             if da.x.max() > 180:
                 da = da.assign_coords(x=(((da.x + 180) % 360) - 180)).sortby('x')
             
-            # LẤY TỌA ĐỘ THỰC TẾ TỪ LƯỚI (Xử lý triệt để lỗi lệch)
+            # BƯỚC 2: REPROJECT
+            resampled = da.rio.reproject(
+                "EPSG:4326",
+                resolution=GRID_RES, 
+                resampling=Resampling.sum
+            )
+            
+            # BƯỚC 3: LẤY DỮ LIỆU VÀ TỌA ĐỘ
             xs = resampled.x.values
             ys = resampled.y.values
             data_array = resampled.values.squeeze()
             data_array = np.nan_to_num(data_array, nan=0.0)
             
-            for y_idx in range(n_lat):
-                for x_idx in range(n_lon):
+            # Lấy kích thước thực tế của mảng để tránh lỗi Index
+            y_size, x_size = data_array.shape
+            
+            for y_idx in range(y_size):
+                for x_idx in range(x_size):
                     val = data_array[y_idx, x_idx]
                     if val > MIN_AREA_THRESHOLD:
                         lon = float(xs[x_idx])
                         lat = float(ys[y_idx])
                         
-                        # CHUẨN HÓA KINH ĐỘ: Nếu kinh độ > 180, chuyển về âm (ví dụ: 260 -> -100)
-                        if lon > 180:
-                            lon -= 360
-                            
+                        # Lúc này lon đã chuẩn -180 đến 180, không cần if nữa
                         points.append({
                             "lat": round(lat, 2),
                             "lon": round(lon, 2),
@@ -73,7 +74,7 @@ def build_crop_points():
         except Exception as e:
             print(f"  -> Bỏ qua {crop_name} (Lỗi: {e})")
             output_data["crops"][crop_name] = []
-    
+            
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     output_file = os.path.join(OUTPUT_DIR, "crop-points.json")
     with open(output_file, "w", encoding="utf-8") as f:
