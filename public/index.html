@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>🌱 AstroYield — NASA Space Apps 2026</title>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@400;600&display=swap"/>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<!-- ═══════════ LOADING OVERLAY ═══════════ -->
+<div id="loading">
+  <div>
+    <div class="spinner"></div>
+    <div class="spinner-inner"></div>
+  </div>
+  <div class="loading-text" id="loading-title">⚛️ QUANTUM ANALYSIS RUNNING…</div>
+  <div class="loading-steps" id="loading-step">Connecting to NASA POWER API…</div>
+</div>
+
+<!-- ═══════════ MAP ═══════════ -->
+<div id="map"></div>
+
+<!-- ═══════════ HEADER ═══════════ -->
+<header id="header">
+  <div class="logo">
+    <span>🌱</span>
+    <div>
+      <div>FARMSHIFT</div>
+      <div class="logo-sub">AI & Quantum-Powered Precision Agriculture</div>
+    </div>
+  </div>
+  <div class="header-badges">
+    <span class="hbadge hbadge-nasa">☀️ NASA POWER</span>
+    <span class="hbadge hbadge-nasa">💧 MERRA-2 LSM</span>
+    <span class="hbadge hbadge-nasa">🌧️ GPCP Gauge</span>
+    <span class="hbadge hbadge-nasa">🌡️ Thermal TS</span>
+    <span class="hbadge hbadge-nasa">🌿 Proxy NDVI</span>
+    <span class="hbadge hbadge-q">⚛️ Statevector QAOA</span>
+    <span class="hbadge hbadge-src" id="data-source-badge">Source: —</span>
+  </div>
+</header>
+
+<!-- ═══════════ LEFT PANEL ═══════════ -->
+<div id="left-panel">
+
+  <!-- Smart Search -->
+  <div class="glass panel-section">
+    <div class="section-label">🔍 Smart Farm Search</div>
+    <div class="search-wrap">
+      <input
+        class="search-input"
+        id="search-input"
+        type="text"
+        placeholder="Phú Xuyên, Hà Nội, California…"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button class="btn-search" id="btn-search" onclick="smartGeocode()">🔍 Tìm</button>
+    </div>
+    <div class="search-result" id="search-result"></div>
+    <div class="search-error"  id="search-error"></div>
+
+    <!-- Map Layer Switcher -->
+    <div class="layer-toggle-wrap">
+      <button class="layer-btn active" id="btn-layer-esri" onclick="switchMapLayer('esri')">🛰️ Esri Hybrid</button>
+      <button class="layer-btn" id="btn-layer-google" onclick="switchMapLayer('google')">🗺️ Google Hybrid</button>
+      <button class="layer-btn" id="btn-layer-pure" onclick="switchMapLayer('pure')">🌍 Vệ tinh thuần</button>
+    </div>
+  </div>
+
+  <!-- Coordinates -->
+  <div class="glass panel-section">
+    <div class="section-label">📍 Farm Location</div>
+    <div class="coord-box">
+      <div class="coord-field">
+        <label>LATITUDE</label>
+        <input type="number" id="inp-lat" value="10.0400" step="0.0001" min="-90" max="90"/>
+      </div>
+      <div class="coord-field">
+        <label>LONGITUDE</label>
+        <input type="number" id="inp-lon" value="105.7800" step="0.0001" min="-180" max="180"/>
+      </div>
+    </div>
+    <button class="btn-random" onclick="randomCoords()">
+      🎲 Target Random Farm
+    </button>
+  </div>
+
+  <!-- Tactical Weights -->
+  <div class="glass panel-section">
+    <div class="section-label">⚖️ Farmer Priority Weights</div>
+    <div class="slider-group">
+      <div class="slider-row">
+        <span class="slider-name">🌱 Bảo vệ Đất</span>
+        <span class="slider-val" id="val-soil">0.33</span>
+      </div>
+      <input type="range" id="sl-soil" min="0" max="1" step="0.01" value="0.33"
+             oninput="document.getElementById('val-soil').textContent=parseFloat(this.value).toFixed(2)"/>
+    </div>
+    <div class="slider-group">
+      <div class="slider-row">
+        <span class="slider-name">💧 Tiết kiệm Nước</span>
+        <span class="slider-val" id="val-water">0.33</span>
+      </div>
+      <input type="range" id="sl-water" min="0" max="1" step="0.01" value="0.33"
+             oninput="document.getElementById('val-water').textContent=parseFloat(this.value).toFixed(2)"/>
+    </div>
+    <div class="slider-group">
+      <div class="slider-row">
+        <span class="slider-name">💰 Tối đa Lợi nhuận</span>
+        <span class="slider-val" id="val-profit">0.34</span>
+      </div>
+      <input type="range" id="sl-profit" min="0" max="1" step="0.01" value="0.34"
+             oninput="document.getElementById('val-profit').textContent=parseFloat(this.value).toFixed(2)"/>
+    </div>
+  </div>
+
+  <!-- Crop Strategy -->
+  <div class="glass panel-section">
+    <div class="section-label">🌾 Your Rotation Strategy</div>
+    <div class="select-group">
+      <div class="select-label"><span>Vụ Xuân</span> · Season 1 (Jan–Apr)</div>
+      <select id="crop-s1">
+        <option value="Rice">🌾 Lúa Nước (Rice)</option>
+        <option value="Soybean">🌱 Đậu Tương (Soybean)</option>
+        <option value="Peanut">🥜 Lạc/Đậu (Peanut)</option>
+        <option value="Maize">🌽 Ngô (Maize)</option>
+        <option value="Veggies">🥬 Rau Màu (Veggies)</option>
+        <option value="Fallow">🏜️ Nghỉ Đất (Fallow)</option>
+      </select>
+    </div>
+    <div class="select-group">
+      <div class="select-label"><span>Vụ Hè Thu</span> · Season 2 (May–Aug)</div>
+      <select id="crop-s2">
+        <option value="Rice">🌾 Lúa Nước (Rice)</option>
+        <option value="Soybean" selected>🌱 Đậu Tương (Soybean)</option>
+        <option value="Peanut">🥜 Lạc/Đậu (Peanut)</option>
+        <option value="Maize">🌽 Ngô (Maize)</option>
+        <option value="Veggies">🥬 Rau Màu (Veggies)</option>
+        <option value="Fallow">🏜️ Nghỉ Đất (Fallow)</option>
+      </select>
+    </div>
+    <div class="select-group">
+      <div class="select-label"><span>Vụ Đông</span> · Season 3 (Sep–Dec)</div>
+      <select id="crop-s3">
+        <option value="Rice">🌾 Lúa Nước (Rice)</option>
+        <option value="Soybean">🌱 Đậu Tương (Soybean)</option>
+        <option value="Peanut">🥜 Lạc/Đậu (Peanut)</option>
+        <option value="Maize" selected>🌽 Ngô (Maize)</option>
+        <option value="Veggies">🥬 Rau Màu (Veggies)</option>
+        <option value="Fallow">🏜️ Nghỉ Đất (Fallow)</option>
+      </select>
+    </div>
+
+    <button class="btn-analyze" id="btn-run" onclick="runAnalysis()">
+      🚀 RUN QUANTUM ANALYSIS
+    </button>
+  </div>
+
+  <!-- Alerts -->
+  <div id="alerts-wrap" style="display:none">
+    <div class="glass panel-section">
+      <div class="section-label">🚨 NASA Weather Alerts</div>
+      <div id="alerts-list"></div>
+    </div>
+  </div>
+
+</div><!-- /left-panel -->
+
+<!-- ═══════════ RIGHT PANEL ═══════════ -->
+<div id="right-panel" class="glass">
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('telemetry',this)">📡 Satellite Telemetry</button>
+    <button class="tab-btn" onclick="switchTab('arena',this)">⚛️ Quantum Arena</button>
+  </div>
+
+  <!-- TAB 1: SATELLITE TELEMETRY -->
+  <div class="tab-content active" id="tab-telemetry">
+    <div class="sat-row">
+      <div class="sat-icon">☀️</div>
+      <div class="sat-info">
+        <div class="sat-name">NASA POWER</div>
+        <div class="sat-desc">T2M · Radiation · LST</div>
+      </div>
+      <div class="sat-values">
+        <div class="sat-val-main" id="sv-temp">—</div>
+        <div class="sat-val-sub" id="sv-temp-rng">Avg Temperature</div>
+      </div>
+    </div>
+
+    <div class="sat-row">
+      <div class="sat-icon">💧</div>
+      <div class="sat-info">
+        <div class="sat-name">NASA SMAP · Crop-CASMA</div>
+        <div class="sat-desc">GWETTOP · GWETROOT</div>
+      </div>
+      <div class="sat-values">
+        <div class="sat-val-main" id="sv-gwet">—</div>
+        <div class="sat-val-sub" id="sv-gwet-sub">Root Zone Moisture</div>
+      </div>
+    </div>
+
+    <div class="sat-row">
+      <div class="sat-icon">🌧️</div>
+      <div class="sat-info">
+        <div class="sat-name">NASA GPM IMERG</div>
+        <div class="sat-desc">PRECTOTCORR · Erosion Risk</div>
+      </div>
+      <div class="sat-values">
+        <div class="sat-val-main" id="sv-rain">—</div>
+        <div class="sat-val-sub" id="sv-rain-sub">Avg Rainfall/Month</div>
+      </div>
+    </div>
+
+    <div class="sat-row">
+      <div class="sat-icon">🌡️</div>
+      <div class="sat-info">
+        <div class="sat-name">ECOSTRESS / MODIS LST</div>
+        <div class="sat-desc">TS · ESI · Heat Stress</div>
+      </div>
+      <div class="sat-values">
+        <div class="sat-val-main" id="sv-ts">—</div>
+        <div class="sat-val-sub" id="sv-esi">ESI —</div>
+      </div>
+    </div>
+
+    <div class="sat-row">
+      <div class="sat-icon">🌿</div>
+      <div class="sat-info">
+        <div class="sat-name">MODIS NDVI + SoilGrids</div>
+        <div class="sat-desc">Vegetation Health · Fertility</div>
+      </div>
+      <div class="sat-values">
+        <div class="sat-val-main" id="sv-ndvi">—</div>
+        <div class="sat-val-sub" id="sv-ndvi-sub">NDVI Avg</div>
+      </div>
+    </div>
+
+    <div class="mini-chart-wrap">
+      <div class="mini-chart-title">🌡️ TEMPERATURE PROFILE (12 Months)</div>
+      <canvas id="chart-temp" height="90"></canvas>
+    </div>
+    <div class="mini-chart-wrap">
+      <div class="mini-chart-title">🌧️ RAINFALL + 💧 SOIL MOISTURE</div>
+      <canvas id="chart-rain" height="90"></canvas>
+    </div>
+    <div class="mini-chart-wrap">
+      <div class="mini-chart-title">🌿 NDVI VEGETATION INDEX</div>
+      <canvas id="chart-ndvi" height="70"></canvas>
+    </div>
+  </div>
+
+  <!-- TAB 2: QUANTUM ARENA -->
+  <div class="tab-content" id="tab-arena">
+    <div class="match-score-wrap">
+      <div class="match-score-label">⚛️ Quantum Match Score</div>
+      <div class="match-score-val" id="match-score">—%</div>
+      <div class="match-score-desc" id="match-desc">Run analysis to compare strategies</div>
+    </div>
+
+    <div class="arena-block user-block">
+      <div class="arena-block-header">
+        <div class="arena-label" style="color:var(--cyan)">🎮 Your Strategy</div>
+        <div class="rank-chip" id="user-rank">—</div>
+      </div>
+      <div class="crop-tags" id="user-tags">
+        <span style="font-size:0.7rem;color:var(--dim)">Select crops and run analysis…</span>
+      </div>
+      <div id="user-hp-soil"></div>
+      <div id="user-hp-water"></div>
+      <div id="user-hp-profit"></div>
+    </div>
+
+    <div class="arena-block quantum-block">
+      <div class="arena-block-header">
+        <div class="arena-label" style="color:var(--purple)">⚛️ Quantum AI Optimal</div>
+        <div class="rank-chip" id="q-rank">—</div>
+      </div>
+      <div class="q-method" id="q-method">Waiting for analysis…</div>
+      <div class="crop-tags" id="q-tags"></div>
+      <div id="q-hp-soil"></div>
+      <div id="q-hp-water"></div>
+      <div id="q-hp-profit"></div>
+    </div>
+
+    <div class="radar-wrap">
+      <div class="mini-chart-title">🕸️ STRATEGY RADAR COMPARISON</div>
+      <canvas id="chart-radar" height="220"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Map hint -->
+<div id="map-hint">🖱️ Click anywhere on the map to place your farm marker</div>
+
+<!-- ═══════════ CẢNH BÁO VÙNG NƯỚC (WATER WARNING MODAL) ═══════════ -->
+<div id="water-alert" class="water-alert-modal" role="alert" aria-live="assertive">
+  <div class="water-alert-icon">
+    <svg class="siren-svg" viewBox="0 0 54 54" width="46" height="46" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Light rays -->
+      <line x1="9" y1="26" x2="2" y2="26" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="12" y1="17" x2="6" y2="12" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="17" y1="10" x2="13" y2="4" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="45" y1="26" x2="52" y2="26" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="42" y1="17" x2="48" y2="12" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="37" y1="10" x2="41" y2="4" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+      <!-- Dome -->
+      <path d="M18 31 C18 19 22 14 27 14 C32 14 36 19 36 31 Z" fill="#ef4444"/>
+      <path d="M21 28 C21 22 23 18 26 16.5" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity="0.65"/>
+      <!-- Base -->
+      <path d="M15 31 H39 L41 39 H13 Z" fill="#fda4af"/>
+      <rect x="11" y="39" width="32" height="4" rx="2" fill="#be123c"/>
+    </svg>
+  </div>
+  <div class="water-alert-content">
+    <div class="water-alert-header">
+      <div class="water-alert-title">
+        <span class="hazard-icon">⚠️</span> CẢNH BÁO VÙNG NƯỚC
+      </div>
+      <button class="water-alert-close" onclick="closeWaterAlert()" title="Đóng" aria-label="Đóng">&times;</button>
+    </div>
+    <div class="water-alert-desc">
+      Tọa độ này nằm trên đại dương/mặt nước. Vệ tinh SMAP và GPM IMERG không thể tính toán luân canh cho vùng biển. Vui lòng chọn khu vực đất liền!
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ JAVASCRIPT ═══════════ -->
+<script src="js/state.js"></script>
+<script src="js/map.js"></script>
+<script src="js/geocoder.js"></script>
+<script src="js/ui-helpers.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/render.js"></script>
+<script src="js/analysis.js"></script>
+</body>
+</html>
