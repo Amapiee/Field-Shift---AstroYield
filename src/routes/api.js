@@ -1,12 +1,14 @@
 // Các endpoint /api/*
 const express = require("express");
-const { CROPS } = require("../config/crops");
+const { CROPS, CROP_KEYS } = require("../config/crops");
 const { clamp, round, uniform, num } = require("../utils/helpers");
 const { debug, timer } = require("../utils/logger");
 const { fetchNasa, computeDerived, buildSatelliteSummary } = require("../services/nasa");
+const { fetchExternalData } = require("../services/external");
 const { scoreScenario } = require("../services/scoring");
 const { generateAlerts } = require("../services/alerts");
 const { runQuantum } = require("../quantum/qaoa");
+const { calculateTradeRoutes } = require("../services/trade");
 
 const router = express.Router();
 
@@ -29,22 +31,28 @@ router.post("/analyze", async (req, res) => {
     // 1) Dữ liệu NASA
     let done = timer("1. NASA fetch + derived");
     const nasa = computeDerived(await fetchNasa(lat, lon));
-    done(nasa._mock ? `(mock${nasa._error ? ": " + nasa._error : ""})` : "(NASA POWER thật)");
+    done(nasa._mock ? `(mock${nasa._error ? ": " + nasa._error : ""})` : "(NASA POWER)");
 
     const satellite = buildSatelliteSummary(nasa);
     const alerts = generateAlerts(nasa);
 
-    // 2) Chấm điểm
-    done = timer("2. scoring baseline + user");
+    // 2) Lấy API Bên Thứ Ba  
+    done = timer("2. Fetch External APIs (CartoDrone/Every.Farm)");
+    const allCropsToFetch = [...new Set([...userCrops, ...CROP_KEYS])]; 
+    const extData = await fetchExternalData(lat, lon, nasa, allCropsToFetch);
+    done(`source=${extData.source} ok=${extData.ok}`);
+
+    // 3) Chấm điểm
+    done = timer("3. scoring baseline + user");
     const baselineCrops = ["Rice", "Rice", "Fallow"];
     const baseline = scoreScenario(baselineCrops, nasa, wWater, wSoil, wProfit);
     const user = scoreScenario(userCrops, nasa, wWater, wSoil, wProfit);
     done();
 
-    // 3) Lượng tử
-    done = timer("3. quantum QAOA");
+    // 4) Lượng tử
+    done = timer("4. quantum QAOA");
     const q = runQuantum(nasa, wWater, wSoil, wProfit);
-    const quantum = scoreScenario(q.crops, nasa, wWater, wSoil, wProfit);
+    const quantum  = scoreScenario(userCrops, nasa, wWater, wSoil, wProfit);
     done(`crops=${q.crops.join(",")} ok=${q.ok}`);
 
     const matchPct = clamp(round(100 - Math.abs(user.overall - quantum.overall) * 1.2, 1), 0, 100);
@@ -59,6 +67,11 @@ router.post("/analyze", async (req, res) => {
       ok: true,
       coords: { lat: round(lat, 4), lon: round(lon, 4) },
       source: nasa._mock ? "Fallback Mock Data" : "NASA POWER API",
+      external_api: {
+        ok: extData.ok,
+        source: extData.source,
+        error: extData.error
+      },
       satellite,
       alerts,
       monthly: {
@@ -105,6 +118,31 @@ router.get("/random_coords", (req, res) => {
   const lat = clamp(round(lat0 + uniform(-0.05, 0.05), 4), -60, 70);
   const lon = round(lon0 + uniform(-0.05, 0.05), 4);
   res.json({ lat, lon });
+});
+
+// ─── POST /api/trade_routes ──────────────────────────────────────────────────
+router.post("/trade_routes", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const lat = num(body.lat, 10.04);
+    const lon = num(body.lon, 105.78);
+    const crops = Array.isArray(body.crops) ? body.crops : ["Rice", "Soybean", "Maize"];
+
+    const routes = await calculateTradeRoutes(lat, lon, crops);
+
+    // Kiểm tra xem có bất kỳ tuyến đường nào dùng giá fallback không
+    const hasFallback = routes.some((r) =>
+      r.buyers.some((b) => b.price_source === "fallback")
+    );
+
+    res.json({
+      ok: true,
+      routes,
+      price_source: hasFallback ? "fallback" : "live",
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 module.exports = router;

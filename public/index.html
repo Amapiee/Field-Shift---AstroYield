@@ -3,11 +3,12 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>🌱 AstroYield — NASA Space Apps 2026</title>
+<title>🌱 FarmShift — NASA Space Apps 2026</title>
 
 <!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;600;800;900&family=JetBrains+Mono:wght@400;600&display=swap"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"/>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -17,8 +18,347 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
 <link rel="stylesheet" href="css/style.css"/>
+
+<style>
+/* ═══════════════════════════════════════════════════════════
+   UNIFIED SCROLL CONTAINER & LAYOUT OVERRIDES
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-head: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Biến màu chủ đạo động (Mặc định: Emerald #10b981) */
+  --teal: #10b981;
+  --primary-rgb: 16, 185, 129;
+}
+
+/* ── Liên kết màu chủ đạo với toàn bộ thành phần UI ── */
+.btn-settings-gear { border-color: rgba(var(--primary-rgb), 0.35) !important; color: var(--teal) !important; }
+.btn-settings-gear:hover { background: rgba(var(--primary-rgb), 0.25) !important; box-shadow: 0 0 12px rgba(var(--primary-rgb), 0.4) !important; }
+.panel-head, .panel-foot, .settings-header { border-color: rgba(var(--primary-rgb), 0.25) !important; }
+.acc-card:hover { border-color: rgba(var(--primary-rgb), 0.3) !important; }
+.acc-card.open { border-color: rgba(var(--primary-rgb), 0.5) !important; }
+.panel-scroll-container::-webkit-scrollbar-thumb,
+.tab-content::-webkit-scrollbar-thumb,
+.settings-body::-webkit-scrollbar-thumb { background: rgba(var(--primary-rgb), 0.45) !important; }
+select, .coord-field { border-color: rgba(var(--primary-rgb), 0.25) !important; }
+
+/* ── Chế độ Phong cách CSS (Visual Styles) ── */
+/* 1. Sci-Fi HUD: Nền đặc, viền sắc nét, tăng tốc GPU */
+body.ui-hud #left-panel,
+body.ui-hud #right-panel,
+body.ui-hud .settings-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(6, 11, 20, 0.96) !important;
+  border-radius: 4px !important;
+  border: 1px solid rgba(var(--primary-rgb), 0.55) !important;
+}
+body.ui-hud .acc-card { border-radius: 4px !important; }
+
+/* 2. Daylight Contrast: Nền sáng rõ để xem ngoài trời/đồng ruộng */
+body.ui-daylight #left-panel,
+body.ui-daylight #right-panel,
+body.ui-daylight .settings-card,
+body.ui-daylight #header {
+  background: rgba(15, 23, 42, 0.92) !important;
+  border-color: rgba(var(--primary-rgb), 0.7) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* ── Chế độ Bố cục HTML (Layout Modifiers) ── */
+/* Đảo vị trí 2 bảng Trái <-> Phải */
+body.layout-swap #left-panel { left: auto !important; right: 16px !important; }
+body.layout-swap #right-panel { right: auto !important; left: 16px !important; }
+
+/* Bố cục Thu gọn (Compact Mode cho màn hình nhỏ) */
+body.layout-compact #left-panel { width: 300px !important; }
+body.layout-compact .panel-scroll-container { padding: 8px !important; gap: 6px !important; }
+body.layout-compact .acc-btn { padding: 8px 10px !important; font-size: 0.75rem !important; }
+body.layout-compact .acc-inner { padding: 0 10px 10px !important; gap: 6px !important; }
+
+/* ── Giao diện bên trong Settings Modal ── */
+.settings-tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.08); background: rgba(0,0,0,0.25); }
+.stab-btn {
+  flex: 1; padding: 11px 10px; background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--dim); font-family: var(--font-head); font-size: 0.78rem; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+}
+.stab-btn.active { color: var(--teal); border-bottom-color: var(--teal); background: rgba(var(--primary-rgb), 0.08); }
+.stab-pane { display: none; flex-direction: column; gap: 16px; }
+.stab-pane.active { display: flex; }
+
+.theme-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.theme-swatch {
+  height: 38px; border-radius: 10px; border: 2px solid transparent; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 0.95rem;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.theme-swatch:hover { transform: translateY(-2px); }
+.theme-swatch.active { border-color: #ffffff; box-shadow: 0 0 12px rgba(255,255,255,0.45); }
+
+.ui-preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.preset-btn {
+  padding: 9px 12px; border-radius: 8px; background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1); color: var(--text); font-size: 0.75rem;
+  font-weight: 600; cursor: pointer; text-align: left; transition: all 0.2s;
+  display: flex; align-items: center; gap: 6px;
+}
+.preset-btn:hover { background: rgba(255,255,255,0.08); }
+.preset-btn.active {
+  background: rgba(var(--primary-rgb), 0.18); border-color: var(--teal); color: var(--teal);
+}
+
+/* Left Panel Main Box */
+#left-panel {
+  position: fixed;
+  top: 64px; left: 16px; bottom: 16px;
+  width: 340px;
+  z-index: 50;
+  display: flex; 
+  flex-direction: column;
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* Fixed Header on Top of Left Panel */
+.panel-head {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.2);
+  background: rgba(6, 13, 22, 0.7);
+  flex-shrink: 0;
+}
+.panel-head h2 {
+  font-family: var(--font-head);
+  font-size: 0.85rem; font-weight: 700;
+  color: var(--teal); letter-spacing: 0.05em;
+  margin: 0; text-transform: uppercase;
+}
+
+/* ── SINGLE UNIFIED SCROLL CONTAINER FOR ALL CARDS ── */
+.panel-scroll-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px;
+  display: flex; 
+  flex-direction: column; 
+  gap: 10px;
+}
+
+/* Scrollbar Style */
+.panel-scroll-container::-webkit-scrollbar,
+.tab-content::-webkit-scrollbar,
+.settings-body::-webkit-scrollbar {
+  width: 6px;
+}
+.panel-scroll-container::-webkit-scrollbar-track,
+.tab-content::-webkit-scrollbar-track,
+.settings-body::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+.panel-scroll-container::-webkit-scrollbar-thumb,
+.tab-content::-webkit-scrollbar-thumb,
+.settings-body::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.4);
+  border-radius: 4px;
+}
+.panel-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.75);
+}
+
+/* Fixed Footer Button at Bottom of Left Panel */
+.panel-foot {
+  padding: 12px;
+  border-top: 1px solid rgba(16, 185, 129, 0.2);
+  background: rgba(6, 13, 22, 0.85);
+  flex-shrink: 0;
+}
+
+/* Accordion Component */
+.acc-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.2s var(--ease);
+  flex-shrink: 0;
+}
+.acc-card:hover { border-color: rgba(16, 185, 129, 0.25); }
+.acc-card.open { border-color: rgba(16, 185, 129, 0.4); }
+
+.acc-btn {
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent; border: none;
+  color: var(--text);
+  font-family: var(--font-head);
+  font-size: 0.8rem; font-weight: 600;
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; transition: background 0.15s;
+}
+.acc-btn:hover { background: rgba(16, 185, 129, 0.06); }
+.acc-btn-title { display: flex; align-items: center; gap: 8px; }
+.acc-icon { font-size: 0.95rem; }
+.acc-arrow {
+  font-size: 0.7rem; color: var(--dim);
+  transition: transform 0.25s var(--ease);
+}
+.acc-card.open .acc-arrow { transform: rotate(180deg); color: var(--teal); }
+
+.acc-body {
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows 250ms var(--ease);
+}
+.acc-card.open .acc-body { grid-template-rows: 1fr; }
+.acc-content { overflow: hidden; }
+.acc-inner { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 10px; }
+
+/* Form Controls Optimization */
+.search-wrap { display: flex; gap: 6px; }
+.search-input {
+  flex: 1; padding: 8px 10px; font-size: 0.78rem;
+  border-radius: 8px; background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(56, 189, 248, 0.25); color: var(--text);
+}
+.btn-search {
+  padding: 8px 12px; font-size: 0.78rem; border-radius: 8px;
+  background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35);
+  color: var(--cyan); font-weight: 600; cursor: pointer;
+}
+
+.coord-box { display: flex; gap: 8px; }
+.coord-field {
+  flex: 1; padding: 6px 8px; border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(16, 185, 129, 0.2);
+}
+.coord-field label { font-size: 0.55rem; color: var(--dim); display: block; }
+.coord-field input {
+  background: transparent; border: none; outline: none;
+  color: var(--cyan); font-family: var(--font-mono); font-size: 0.8rem; width: 100%;
+}
+
+.btn-random {
+  width: 100%; padding: 8px; border-radius: 8px;
+  background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3);
+  color: var(--cyan); font-size: 0.75rem; font-weight: 600; cursor: pointer;
+}
+
+.select-group { margin-bottom: 2px; }
+.select-label { font-size: 0.7rem; color: var(--dim); margin-bottom: 4px; }
+select {
+  width: 100%; padding: 8px 10px; font-size: 0.78rem;
+  border-radius: 8px; background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(16, 185, 129, 0.25); color: var(--text); outline: none;
+}
+
+/* Right Panel Adjustment */
+#right-panel { top: 64px !important; }
+</style>
 </head>
 <body>
+
+<!-- ═══════════ SETTINGS MODAL ═══════════ -->
+<div id="settings-modal">
+  <div class="settings-card" style="width: 440px;">
+    <div class="settings-header">
+      <div class="settings-title" data-i18n="settings_title">⚙️ Cấu hình Ưu tiên & Hệ thống</div>
+      <button class="btn-close-modal" onclick="toggleSettingsModal()">✕</button>
+    </div>
+
+    <!-- Thanh chuyển Tab -->
+    <div class="settings-tabs">
+      <button class="stab-btn active" onclick="switchSettingsTab('tab-weights', this)" data-i18n="stab_weights">⚖️ Trọng số Canh tác</button>
+      <button class="stab-btn" onclick="switchSettingsTab('tab-appearance', this)" data-i18n="stab_ui">🎨 Giao diện & Ngôn ngữ</button>
+    </div>
+
+    <div class="settings-body">
+      <!-- TAB 1: TRỌNG SỐ CANH TÁC -->
+      <div id="tab-weights" class="stab-pane active">
+        <div class="section-label" data-i18n="weights_label">⚖️ Trọng số Ưu tiên Canh tác</div>
+        <div class="slider-group">
+          <div class="slider-row">
+            <span class="slider-name" data-i18n="w_soil">🌱 Bảo vệ Đất</span>
+            <span class="slider-val" id="val-soil">0.33</span>
+          </div>
+          <input type="range" id="sl-soil" min="0" max="1" step="0.01" value="0.33" oninput="document.getElementById('val-soil').textContent=parseFloat(this.value).toFixed(2)"/>
+        </div>
+        <div class="slider-group">
+          <div class="slider-row">
+            <span class="slider-name" data-i18n="w_water">💧 Tiết kiệm Nước</span>
+            <span class="slider-val" id="val-water">0.33</span>
+          </div>
+          <input type="range" id="sl-water" min="0" max="1" step="0.01" value="0.33" oninput="document.getElementById('val-water').textContent=parseFloat(this.value).toFixed(2)"/>
+        </div>
+        <div class="slider-group">
+          <div class="slider-row">
+            <span class="slider-name" data-i18n="w_profit">💰 Tối đa Lợi nhuận</span>
+            <span class="slider-val" id="val-profit">0.34</span>
+          </div>
+          <input type="range" id="sl-profit" min="0" max="1" step="0.01" value="0.34" oninput="document.getElementById('val-profit').textContent=parseFloat(this.value).toFixed(2)"/>
+        </div>
+      </div>
+
+      <!-- TAB 2: GIAO DIỆN, BỐ CỤC & NGÔN NGỮ -->
+      <div id="tab-appearance" class="stab-pane">
+        <!-- 1. Ngôn ngữ -->
+        <div class="select-group">
+          <div class="select-label" data-i18n="lang_label">🌐 Ngôn ngữ hiển thị</div>
+          <select id="setting-lang" onchange="AppSettings.setLanguage(this.value)">
+            <option value="vi">🇻🇳 Tiếng Việt (Vietnamese)</option>
+            <option value="en">🇬🇧 English (International)</option>
+          </select>
+        </div>
+
+        <!-- 2. Màu chủ đạo -->
+        <div>
+          <div class="select-label" data-i18n="theme_color_label" style="margin-bottom:6px">🎨 Màu sắc chủ đạo (Theme Color)</div>
+          <div class="theme-grid">
+            <button class="theme-swatch active" data-hex="#10b981" style="background:#10b981" onclick="AppSettings.setTheme('#10b981', '16, 185, 129')" title="Emerald Bio">🌱</button>
+            <button class="theme-swatch" data-hex="#38bdf8" style="background:#38bdf8" onclick="AppSettings.setTheme('#38bdf8', '56, 189, 248')" title="Cyber Ocean">🌊</button>
+            <button class="theme-swatch" data-hex="#a855f7" style="background:#a855f7" onclick="AppSettings.setTheme('#a855f7', '168, 85, 247')" title="Quantum Violet">⚛️</button>
+            <button class="theme-swatch" data-hex="#f59e0b" style="background:#f59e0b" onclick="AppSettings.setTheme('#f59e0b', '245, 158, 11')" title="Solar Amber">☀️</button>
+            <button class="theme-swatch" data-hex="#f43f5e" style="background:#f43f5e" onclick="AppSettings.setTheme('#f43f5e', '244, 63, 94')" title="Mars Terra">🔥</button>
+          </div>
+        </div>
+
+        <!-- 3. Phong cách CSS -->
+        <div>
+          <div class="select-label" data-i18n="ui_style_label" style="margin-bottom:6px">✨ Phong cách Giao diện (Visual Style)</div>
+          <div class="ui-preset-grid">
+            <button class="preset-btn active" id="btn-style-glass" onclick="AppSettings.setUIStyle('glass')" data-i18n="style_glass">✨ Kính mờ (Glass)</button>
+            <button class="preset-btn" id="btn-style-hud" onclick="AppSettings.setUIStyle('hud')" data-i18n="style_hud">🛡️ Sci-Fi HUD (Sắc nét)</button>
+          </div>
+        </div>
+
+        <!-- 4. Bố cục HTML -->
+        <div>
+          <div class="select-label" data-i18n="layout_label" style="margin-bottom:6px">🖥️ Bố cục & Kích thước (Layout)</div>
+          <div class="ui-preset-grid">
+            <button class="preset-btn active" id="btn-layout-normal" onclick="AppSettings.setLayoutSwap(false)" data-i18n="layout_normal">⬅️ Bố cục Chuẩn</button>
+            <button class="preset-btn" id="btn-layout-swap" onclick="AppSettings.setLayoutSwap(true)" data-i18n="layout_swap">🔄 Đảo Trái / Phải</button>
+            <button class="preset-btn active" id="btn-density-std" onclick="AppSettings.setCompact(false)" data-i18n="density_std">📐 Kích thước Chuẩn</button>
+            <button class="preset-btn" id="btn-density-compact" onclick="AppSettings.setCompact(true)" data-i18n="density_compact">🔍 Thu gọn (Compact)</button>
+          </div>
+        </div>
+
+        <!-- Nút Reset -->
+        <button class="btn-random" onclick="AppSettings.resetAll()" data-i18n="btn_reset" style="margin-top:4px; color:#fca5a5; border-color:rgba(239,68,68,0.4); background:rgba(239,68,68,0.12);">
+          🔄 Khôi phục giao diện mặc định
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 <!-- ═══════════ LOADING OVERLAY ═══════════ -->
 <div id="loading">
@@ -26,8 +366,8 @@
     <div class="spinner"></div>
     <div class="spinner-inner"></div>
   </div>
-  <div class="loading-text" id="loading-title">⚛️ QUANTUM ANALYSIS RUNNING…</div>
-  <div class="loading-steps" id="loading-step">Connecting to NASA POWER API…</div>
+  <div class="loading-text" id="loading-title">QUANTUM ANALYSIS RUNNING…</div>
+  <div class="loading-steps" id="loading-step">Connecting to NASA API…</div>
 </div>
 
 <!-- ═══════════ MAP ═══════════ -->
@@ -39,146 +379,243 @@
     <span>🌱</span>
     <div>
       <div>FARMSHIFT</div>
-      <div class="logo-sub">AI & Quantum-Powered Precision Agriculture</div>
+      <div class="logo-sub">AI & Quantum Precision Agriculture</div>
     </div>
   </div>
   <div class="header-badges">
-    <span class="hbadge hbadge-nasa">☀️ NASA POWER</span>
+    <span class="hbadge hbadge-nasa">☀️ NASA POWER</span> 
     <span class="hbadge hbadge-nasa">💧 SMAP</span>
     <span class="hbadge hbadge-nasa">🌧️ GPM</span>
     <span class="hbadge hbadge-nasa">🌡️ ECOSTRESS</span>
     <span class="hbadge hbadge-nasa">🌿 MODIS</span>
     <span class="hbadge hbadge-q">⚛️ Qiskit QAOA</span>
     <span class="hbadge hbadge-src" id="data-source-badge">Source: —</span>
+    <button class="btn-settings-gear" onclick="toggleSettingsModal()" title="Cấu hình & Tùy chọn hệ thống">⚙️</button>
   </div>
 </header>
 
 <!-- ═══════════ LEFT PANEL ═══════════ -->
 <div id="left-panel">
 
-  <!-- Smart Search -->
-  <div class="glass panel-section">
-    <div class="section-label">🔍 Smart Farm Search</div>
-    <div class="search-wrap">
-      <input
-        class="search-input"
-        id="search-input"
-        type="text"
-        placeholder="Phú Xuyên, Hà Nội, California…"
-        autocomplete="off"
-        spellcheck="false"
-      />
-      <button class="btn-search" id="btn-search" onclick="smartGeocode()">🔍 Tìm</button>
-    </div>
-    <div class="search-result" id="search-result"></div>
-    <div class="search-error"  id="search-error"></div>
-
-    <!-- Map Layer Switcher -->
-    <div class="layer-toggle-wrap">
-      <button class="layer-btn active" id="btn-layer-esri" onclick="switchMapLayer('esri')">🛰️ Esri Hybrid</button>
-      <button class="layer-btn" id="btn-layer-google" onclick="switchMapLayer('google')">🗺️ Google Hybrid</button>
-      <button class="layer-btn" id="btn-layer-pure" onclick="switchMapLayer('pure')">🌍 Vệ tinh thuần</button>
-    </div>
+  <!-- Tiêu đề cố định trên cùng -->
+  <div class="panel-head">
+    <h2>🌾 Cấu hình Canh tác</h2>
   </div>
 
-  <!-- Coordinates -->
-  <div class="glass panel-section">
-    <div class="section-label">📍 Farm Location</div>
-    <div class="coord-box">
-      <div class="coord-field">
-        <label>LATITUDE</label>
-        <input type="number" id="inp-lat" value="10.0400" step="0.0001" min="-90" max="90"/>
+  <!-- CONTAINER DUY NHẤT HỖ TRỢ CUỘN CHO TẤT CẢ CÁC MỤC -->
+  <div class="panel-scroll-container">
+    
+    <!-- MỤC 1: KẾ HOẠCH LUÂN CANH -->
+    <div class="acc-card open">
+      <button class="acc-btn" onclick="toggleAcc(this)">
+        <span class="acc-btn-title"><span class="acc-icon">🌾</span><span>Kế hoạch Luân canh</span></span>
+        <span class="acc-arrow">▼</span>
+      </button>
+      <div class="acc-body">
+        <div class="acc-content">
+          <div class="acc-inner">
+            <div class="select-group">
+              <div class="select-label"><span>Vụ Xuân</span> (Tháng 1–4)</div>
+              <select id="crop-s1">
+                <option value="Rice">🌾 Lúa Nước (Rice)</option>
+                <option value="Soybean">🌱 Đậu Tương (Soybean)</option>
+                <option value="Peanut">🥜 Lạc/Đậu (Peanut)</option>
+                <option value="Maize">🌽 Ngô (Maize)</option>
+                <option value="Veggies">🥬 Rau Màu (Veggies)</option>
+                <option value="Fallow">🏜️ Nghỉ Đất (Fallow)</option>
+              </select>
+            </div>
+            <div class="select-group">
+              <div class="select-label"><span>Vụ Hè Thu</span> (Tháng 5–8)</div>
+              <select id="crop-s2">
+                <option value="Rice">🌾 Lúa Nước (Rice)</option>
+                <option value="Soybean" selected>🌱 Đậu Tương (Soybean)</option>
+                <option value="Peanut">🥜 Lạc/Đậu (Peanut)</option>
+                <option value="Maize">🌽 Ngô (Maize)</option>
+                <option value="Veggies">🥬 Rau Màu (Veggies)</option>
+                <option value="Fallow">🏜️ Nghỉ Đất (Fallow)</option>
+              </select>
+            </div>
+            <div class="select-group">
+              <div class="select-label"><span>Vụ Đông</span> (Tháng 9–12)</div>
+              <select id="crop-s3">
+                <option value="Rice">🌾 Lúa Nước (Rice)</option>
+                <option value="Soybean">🌱 Đậu Tương (Soybean)</option>
+                <option value="Peanut">🥜 Lạc/Đậu (Peanut)</option>
+                <option value="Maize" selected>🌽 Ngô (Maize)</option>
+                <option value="Veggies">🥬 Rau Màu (Veggies)</option>
+                <option value="Fallow">🏜️ Nghỉ Đất (Fallow)</option>
+              </select>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="coord-field">
-        <label>LONGITUDE</label>
-        <input type="number" id="inp-lon" value="105.7800" step="0.0001" min="-180" max="180"/>
-      </div>
-    </div>
-    <button class="btn-random" onclick="randomCoords()">
-      🎲 Target Random Farm
-    </button>
-  </div>
-
-  <!-- Tactical Weights -->
-  <div class="glass panel-section">
-    <div class="section-label">⚖️ Farmer Priority Weights</div>
-    <div class="slider-group">
-      <div class="slider-row">
-        <span class="slider-name">🌱 Bảo vệ Đất</span>
-        <span class="slider-val" id="val-soil">0.33</span>
-      </div>
-      <input type="range" id="sl-soil" min="0" max="1" step="0.01" value="0.33"
-             oninput="document.getElementById('val-soil').textContent=parseFloat(this.value).toFixed(2)"/>
-    </div>
-    <div class="slider-group">
-      <div class="slider-row">
-        <span class="slider-name">💧 Tiết kiệm Nước</span>
-        <span class="slider-val" id="val-water">0.33</span>
-      </div>
-      <input type="range" id="sl-water" min="0" max="1" step="0.01" value="0.33"
-             oninput="document.getElementById('val-water').textContent=parseFloat(this.value).toFixed(2)"/>
-    </div>
-    <div class="slider-group">
-      <div class="slider-row">
-        <span class="slider-name">💰 Tối đa Lợi nhuận</span>
-        <span class="slider-val" id="val-profit">0.34</span>
-      </div>
-      <input type="range" id="sl-profit" min="0" max="1" step="0.01" value="0.34"
-             oninput="document.getElementById('val-profit').textContent=parseFloat(this.value).toFixed(2)"/>
-    </div>
-  </div>
-
-  <!-- Crop Strategy -->
-  <div class="glass panel-section">
-    <div class="section-label">🌾 Your Rotation Strategy</div>
-    <div class="select-group">
-      <div class="select-label"><span>Vụ Xuân</span> · Season 1 (Jan–Apr)</div>
-      <select id="crop-s1">
-        <option value="Rice">🌾 Lúa Nước (Rice)</option>
-        <option value="Soybean">🌱 Đậu Tương (Soybean)</option>
-        <option value="Peanut">🥜 Lạc/Đậu (Peanut)</option>
-        <option value="Maize">🌽 Ngô (Maize)</option>
-        <option value="Veggies">🥬 Rau Màu (Veggies)</option>
-        <option value="Fallow">🏜️ Nghỉ Đất (Fallow)</option>
-      </select>
-    </div>
-    <div class="select-group">
-      <div class="select-label"><span>Vụ Hè Thu</span> · Season 2 (May–Aug)</div>
-      <select id="crop-s2">
-        <option value="Rice">🌾 Lúa Nước (Rice)</option>
-        <option value="Soybean" selected>🌱 Đậu Tương (Soybean)</option>
-        <option value="Peanut">🥜 Lạc/Đậu (Peanut)</option>
-        <option value="Maize">🌽 Ngô (Maize)</option>
-        <option value="Veggies">🥬 Rau Màu (Veggies)</option>
-        <option value="Fallow">🏜️ Nghỉ Đất (Fallow)</option>
-      </select>
-    </div>
-    <div class="select-group">
-      <div class="select-label"><span>Vụ Đông</span> · Season 3 (Sep–Dec)</div>
-      <select id="crop-s3">
-        <option value="Rice">🌾 Lúa Nước (Rice)</option>
-        <option value="Soybean">🌱 Đậu Tương (Soybean)</option>
-        <option value="Peanut">🥜 Lạc/Đậu (Peanut)</option>
-        <option value="Maize" selected>🌽 Ngô (Maize)</option>
-        <option value="Veggies">🥬 Rau Màu (Veggies)</option>
-        <option value="Fallow">🏜️ Nghỉ Đất (Fallow)</option>
-      </select>
     </div>
 
+    <!-- MỤC 2: TÌM VI TRÍ & BẢN ĐỒ -->
+    <div class="acc-card">
+      <button class="acc-btn" onclick="toggleAcc(this)">
+        <span class="acc-btn-title"><span class="acc-icon">🔍</span><span>Tìm vị trí & Bản đồ</span></span>
+        <span class="acc-arrow">▼</span>
+      </button>
+      <div class="acc-body">
+        <div class="acc-content">
+          <div class="acc-inner">
+            <div class="search-wrap">
+              <input class="search-input" id="search-input" type="text" placeholder="Phú Xuyên, Hà Nội, California…" autocomplete="off" spellcheck="false"/>
+              <button class="btn-search" id="btn-search" onclick="smartGeocode()">🔍 Tìm</button>
+            </div>
+            <div class="search-result" id="search-result"></div>
+            <div class="search-error" id="search-error"></div>
+
+            <div class="layer-toggle-wrap">
+              <button class="layer-btn active" id="btn-layer-esri" onclick="switchMapLayer('esri')">🛰️ Esri</button>
+              <button class="layer-btn" id="btn-layer-google" onclick="switchMapLayer('google')">🗺️ Google</button>
+              <button class="layer-btn" id="btn-layer-pure" onclick="switchMapLayer('pure')">🌍 Thuần</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MỤC 3: TỌA ĐỘ CHI TIẾT -->
+    <div class="acc-card">
+      <button class="acc-btn" onclick="toggleAcc(this)">
+        <span class="acc-btn-title"><span class="acc-icon">📍</span><span>Tọa độ Chi tiết</span></span>
+        <span class="acc-arrow">▼</span>
+      </button>
+      <div class="acc-body">
+        <div class="acc-content">
+          <div class="acc-inner">
+            <div class="coord-box">
+              <div class="coord-field">
+                <label>LATITUDE</label>
+                <input type="number" id="inp-lat" value="10.0400" step="0.0001" min="-90" max="90"/>
+              </div>
+              <div class="coord-field">
+                <label>LONGITUDE</label>
+                <input type="number" id="inp-lon" value="105.7800" step="0.0001" min="-180" max="180"/>
+              </div>
+            </div>
+            <button class="btn-random" onclick="randomCoords()">🎲 Thử vị trí ngẫu nhiên</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MỤC 4: HEATMAP KHÍ HẬU -->
+    <div class="acc-card">
+      <button class="acc-btn" onclick="toggleAcc(this)">
+        <span class="acc-btn-title"><span class="acc-icon">🔥</span><span>Heatmap Khí hậu</span></span>
+        <span class="acc-arrow">▼</span>
+      </button>
+      <div class="acc-body">
+        <div class="acc-content">
+          <div class="acc-inner">
+            <label class="heat-switch">
+              <input type="checkbox" id="heat-toggle"/>
+              <span class="heat-switch-track"><span class="heat-switch-thumb"></span></span>
+              <span class="heat-switch-text">Hiện heatmap toàn cầu</span>
+            </label>
+            <div class="heat-status" id="heat-status" style="display:none"></div>
+
+            <div id="heat-controls" class="heat-controls">
+              <div class="select-group">
+                <div class="select-label"><span>Chỉ số</span></div>
+                <select id="heat-layer"></select>
+              </div>
+              <div class="slider-group">
+                <div class="slider-row">
+                  <span class="slider-name">📅 Thời gian</span>
+                  <span class="slider-val" id="heat-month-val" style="min-width:70px">Cả năm</span>
+                </div>
+                <input type="range" id="heat-month" min="0" max="12" step="1" value="0"/>
+              </div>
+              <div class="slider-group">
+                <div class="slider-row">
+                  <span class="slider-name">🔆 Độ đậm</span>
+                </div>
+                <input type="range" id="heat-opacity" min="20" max="95" step="1" value="60"/>
+              </div>
+              <label class="heat-check">
+                <input type="checkbox" id="heat-invert"/> Đảo màu (nhiều = xanh, ít = đỏ)
+              </label>
+              <div class="heat-legend">
+                <div class="heat-legend-bar" id="heat-legend-bar"></div>
+                <div class="heat-legend-labels">
+                  <span id="heat-legend-min">—</span><span>ít → nhiều</span><span id="heat-legend-max">—</span>
+                </div>
+              </div>
+              <div class="heat-hover" id="heat-hover"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MỤC 5: CẢNH BÁO THỜI TIẾT -->
+    <div id="alerts-wrap" style="display:none" class="acc-card open">
+      <button class="acc-btn" onclick="toggleAcc(this)">
+        <span class="acc-btn-title"><span class="acc-icon">🚨</span><span>Cảnh báo Thiên tai</span></span>
+        <span class="acc-arrow">▼</span>
+      </button>
+      <div class="acc-body">
+        <div class="acc-content">
+          <div class="acc-inner">
+            <div id="alerts-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.panel-scroll-container -->
+
+  <!-- NÚT CHẠY PHÂN TÍCH VÀ THƯƠNG MẠI GHIM Ở ĐÁY -->
+  <div class="panel-foot">
     <button class="btn-analyze" id="btn-run" onclick="runAnalysis()">
-      🚀 RUN QUANTUM ANALYSIS
+      ⚛️ CHẠY PHÂN TÍCH QUANTUM
     </button>
-  </div>
-
-  <!-- Alerts -->
-  <div id="alerts-wrap" style="display:none">
-    <div class="glass panel-section">
-      <div class="section-label">🚨 NASA Weather Alerts</div>
-      <div id="alerts-list"></div>
-    </div>
+    
+    <button class="btn-trade" id="btn-trade-route" onclick="runTradeAnalysis()">
+      🚚 TÍNH TUYẾN ĐƯỜNG THU MUA
+    </button>
   </div>
 
 </div><!-- /left-panel -->
+
+<!-- ═══════════ SETTINGS MODAL ═══════════ -->
+<div id="settings-modal">
+  <div class="settings-card">
+    <div class="settings-header">
+      <div class="settings-title">⚙️ Cấu hình Ưu tiên & Hệ thống</div>
+      <button class="btn-close-modal" onclick="toggleSettingsModal()">✕</button>
+    </div>
+    <div class="settings-body">
+      <div class="section-label" style="margin-bottom:8px">⚖️ Trọng số Ưu tiên Canh tác</div>
+      <div class="slider-group">
+        <div class="slider-row">
+          <span class="slider-name">🌱 Bảo vệ Đất</span>
+          <span class="slider-val" id="val-soil">0.33</span>
+        </div>
+        <input type="range" id="sl-soil" min="0" max="1" step="0.01" value="0.33" oninput="document.getElementById('val-soil').textContent=parseFloat(this.value).toFixed(2)"/>
+      </div>
+      <div class="slider-group">
+        <div class="slider-row">
+          <span class="slider-name">💧 Tiết kiệm Nước</span>
+          <span class="slider-val" id="val-water">0.33</span>
+        </div>
+        <input type="range" id="sl-water" min="0" max="1" step="0.01" value="0.33" oninput="document.getElementById('val-water').textContent=parseFloat(this.value).toFixed(2)"/>
+      </div>
+      <div class="slider-group">
+        <div class="slider-row">
+          <span class="slider-name">💰 Tối đa Lợi nhuận</span>
+          <span class="slider-val" id="val-profit">0.34</span>
+        </div>
+        <input type="range" id="sl-profit" min="0" max="1" step="0.01" value="0.34" oninput="document.getElementById('val-profit').textContent=parseFloat(this.value).toFixed(2)"/>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ═══════════ RIGHT PANEL ═══════════ -->
 <div id="right-panel" class="glass">
@@ -306,13 +743,28 @@
 <!-- Map hint -->
 <div id="map-hint">🖱️ Click anywhere on the map to place your farm marker</div>
 
-<!-- ═══════════ JAVASCRIPT ═══════════ -->
+<!-- ═══════════ JAVASCRIPT HELPERS ═══════════ -->
+<script>
+function toggleAcc(btn) {
+  const card = btn.closest('.acc-card');
+  card.classList.toggle('open');
+}
+
+function toggleSettingsModal() {
+  const modal = document.getElementById('settings-modal');
+  modal.classList.toggle('active');
+}
+</script>
+
 <script src="js/state.js"></script>
 <script src="js/map.js"></script>
+<script src="js/heatmap-core.js"></script>
+<script src="js/heatmap.js"></script>
 <script src="js/geocoder.js"></script>
 <script src="js/ui-helpers.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/render.js"></script>
 <script src="js/analysis.js"></script>
+<script src="/js/trade.js"></script>
 </body>
 </html>

@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FarmShift — Quantum Precision Agriculture System</title>
+
+<!-- Fonts: Plus Jakarta Sans (Headings) + JetBrains Mono (Data/Tech) + Inter (Body) -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"/>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<link rel="stylesheet" href="css/style.css"/>
+</head>
+<body class="ui-hud">
+
+<!-- ═══════════ LOADING OVERLAY ═══════════ -->
+<div id="loading">
+  <div class="spinner-wrap">
+    <div class="spinner"></div>
+    <div class="spinner-inner"></div>
+  </div>
+  <div class="loading-text" id="loading-title">QUANTUM ANALYSIS IN PROGRESS…</div>
+  <div class="loading-steps" id="loading-step">INITIALIZING NASA POWER DATA STREAM…</div>
+</div>
+
+<!-- ═══════════ MAP ═══════════ -->
+<div id="map"></div>
+
+<!-- ═══════════ HEADER ═══════════ -->
+<header id="header">
+  <div class="logo">
+    <div class="logo-icon-wrap">
+      <div class="logo-core"></div>
+    </div>
+    <div>
+      <div class="logo-title">FARMSHIFT <span class="logo-ver">v2.6</span></div>
+      <div class="logo-sub">AI &amp; QUANTUM PRECISION AGRICULTURE</div>
+    </div>
+  </div>
+  
+  <div class="header-badges">
+    <span class="hbadge hbadge-nasa"><span class="status-dot green"></span>NASA POWER</span> 
+    <span class="hbadge hbadge-nasa">SMAP</span>
+    <span class="hbadge hbadge-nasa">GPM IMERG</span>
+    <span class="hbadge hbadge-nasa">ECOSTRESS</span>
+    <span class="hbadge hbadge-nasa">MODIS</span>
+    <span class="hbadge hbadge-q">QISKIT QAOA</span>
+    <span class="hbadge hbadge-src" id="data-source-badge">SOURCE: —</span>
+    <button class="btn-settings-gear" onclick="toggleSettingsModal()" title="System Configuration">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+    </button>
+  </div>
+</header>
+
+<!-- ═══════════ LEFT PANEL ═══════════ -->
+<aside id="left-panel">
+
+  <!-- Header Cố định -->
+  <div class="panel-head">
+    <div class="panel-head-title">
+      <span class="tech-tag">CTRL</span>
+      <h2>CẤU HÌNH CANH TÁC</h2>
+    </div>
+    <span class="status-indicator">SYS.ONLINE</span>
+  </div>
+
+  <!-- Container Cuộn duy nhất -->
+  <div class="panel-scroll-container" id="left-panel-scroll">
+    
+    <!-- CARD 1: LUÂN CANH -->
+    <div class="acc-card open">
+      <button class="acc-btn" onclick="toggleAcc(this)">
+        <span class="acc-btn-title"><span class="acc-badge">01</span><span>CHIẾN LƯỢC LUÂN CANH</span></span>
+        <span class="acc-arrow">◆</span>
+      </button>
+      <div class="acc-body">
+        <div class="acc-content">
+          <div class="acc-inner">
+            <div class="select-group">
+              <div class="select-label">VỤ XUÂN <span class="sub-tag">THÁNG 1–4</span></div>
+              <select id="crop-s1">
+                <option value="Rice">Lúa Nước (Rice)</option>
+                <option value="Soybean">Đậu Tương (Soybean)</option>
+                <option value="Peanut">Lạc / Đậu (Peanut)</option>
+                <option value="Maize">Ngô (Maize)</option>
+                <option value="Veggies">Rau Màu (Veggies)</option>
+                <option value="Fallow">Nghỉ Đất (Fallow)</option>
+              </select>
+            </div>
+            <div class="select-group">
+              <div class="select-label">VỤ HÈ THU <span class="sub-tag">THÁNG 5–8</span></div>
+              <select id="crop-s2">
+                <option value="Rice">Lúa Nước (Rice)</option>
+                <option value="Soybean" selected>Đậu Tương (Soybean)</option>
+                <option value="Peanut">Lạc / Đậu (Peanut)</option>
+                <option value="Maize">Ngô (Maize)</option>
+                <option value="Veggies">Rau Màu (Veggies)</option>
+                <option value="Fallow">Nghỉ Đất (Fallow)</option>
+              </select>
+            </div>
+            <div class="select-group">
+              <div class="select-label">VỤ ĐÔNG <span class="sub-tag">THÁNG 9–12</span></div>
+              <select id="crop-s3">
+                <option value="Rice">Lúa Nước (Rice)</option>
+                <option value="Soybean">Đậu Tương (Soybean)</option>
+                <option value="Peanut">Lạc / Đậu (Peanut)</option>
+                <option value="Maize" selected>Ngô (Maize)</option>
+                <option value="Veggies">Rau Màu (Veggies)</option>
+                <option value="Fallow">Nghỉ Đất (Fallow)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 2: TÌM VỊ TRÍ & BẢN ĐỒ -->
+    <div class="acc-card">
+      <button class="acc-btn" onclick="toggleAcc(this)">
+        <span class="acc-btn-title"><span class="acc-badge">02</span><span>TÌM VỊ TRÍ &amp; BẢN ĐỒ</span></span>
+        <span class="acc-arrow">◆</span>
+      </button>
+      <div class="acc-body">
+        <div class="acc-content">
+          <div class="acc-inner">
+            <div class="search-wrap">
+              <input class="search-input" id="search-input" type="text" placeholder="Nhập địa điểm (ví dụ: Phú Xuyên, Hà Nội)..." autocomplete="off" spellcheck="false"/>
+              <button class="btn-search" id="btn-search" onclick="smartGeocode()">TÌM KẾT QUẢ</button>
+            </div>
+            <div class="search-result" id="search-result"></div>
+            <div class="search-error" id="search-error"></div>
+
+            <div class="layer-toggle-wrap">
+              <button class="layer-btn active" id="btn-layer-esri" onclick="switchMapLayer('esri')">HYBRID ESRI</button>
+              <button class="layer-btn" id="btn-layer-google" onclick="switchMapLayer('google')">GOOGLE MAPS</button>
+              <button class="layer-btn" id="btn-layer-pure" onclick="switchMapLayer('pure')">PURE SATELLITE</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 3: TỌA ĐỘ CHI TIẾT -->
+    <div class="acc-card">
+      <button class="acc-btn" onclick="toggleAcc(this)">
+        <span class="acc-btn-title"><span class="acc-badge">03</span><span>TỌA ĐỘ CHI TIẾT</span></span>
+        <span class="acc-arrow">◆</span>
+      </button>
+      <div class="acc-body">
+        <div class="acc-content">
+          <div class="acc-inner">
+            <div class="coord-box">
+              <div class="coord-field">
+                <label>LATITUDE (N)</label>
+                <input type="number" id="inp-lat" value="10.0400" step="0.0001" min="-90" max="90"/>
+              </div>
+              <div class="coord-field">
+                <label>LONGITUDE (E)</label>
+                <input type="number" id="inp-lon" value="105.7800" step="0.0001" min="-180" max="180"/>
+              </div>
+            </div>
+            <button class="btn-random" onclick="randomCoords()">TARGET RANDOM FARM</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 4: HEATMAP KHÍ HẬU -->
+    <div class="acc-card">
+      <button class="acc-btn" onclick="toggleAcc(this)">
+        <span class="acc-btn-title"><span class="acc-badge">04</span><span>HEATMAP KHÍ HẬU TOÀN CẦU</span></span>
+        <span class="acc-arrow">◆</span>
+      </button>
+      <div class="acc-body">
+        <div class="acc-content">
+          <div class="acc-inner">
+            <label class="heat-switch">
+              <input type="checkbox" id="heat-toggle"/>
+              <span class="heat-switch-track"><span class="heat-switch-thumb"></span></span>
+              <span class="heat-switch-text">KÍCH HOẠT LỚP HEATMAP</span>
+            </label>
+            <div class="heat-status" id="heat-status" style="display:none"></div>
+
+            <div id="heat-controls" class="heat-controls">
+              <div class="select-group">
+                <div class="select-label">CHỈ SỐ KHÍ HẬU</div>
+                <select id="heat-layer"></select>
+              </div>
+
+              <div class="slider-group">
+                <div class="slider-row">
+                  <span class="slider-name">THỜI GIAN</span>
+                  <span class="slider-val" id="heat-month-val" style="min-width:70px">CẢ NĂM</span>
+                </div>
+                <input type="range" id="heat-month" min="0" max="12" step="1" value="0"/>
+              </div>
+
+              <div class="slider-group">
+                <div class="slider-row">
+                  <span class="slider-name">ĐỘ ĐẬM LỚP PHỦ</span>
+                </div>
+                <input type="range" id="heat-opacity" min="20" max="95" step="1" value="60"/>
+              </div>
+
+              <label class="heat-check">
+                <input type="checkbox" id="heat-invert"/> ĐẢO MÀU (THỦY VĂN / NHIỆT ĐỘ)
+              </label>
+
+              <div class="heat-legend">
+                <div class="heat-legend-bar" id="heat-legend-bar"></div>
+                <div class="heat-legend-labels">
+                  <span id="heat-legend-min">—</span><span>THẤP → CAO</span><span id="heat-legend-max">—</span>
+                </div>
+              </div>
+              <div class="heat-hover" id="heat-hover"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 5: CẢNH BÁO THỜI TIẾT -->
+    <div id="alerts-wrap" style="display:none" class="acc-card open">
+      <button class="acc-btn" onclick="toggleAcc(this)">
+        <span class="acc-btn-title"><span class="acc-badge alert-badge">!</span><span>CẢNH BÁO THIÊN TAI (NASA)</span></span>
+        <span class="acc-arrow">◆</span>
+      </button>
+      <div class="acc-body">
+        <div class="acc-content">
+          <div class="acc-inner">
+            <div id="alerts-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.panel-scroll-container -->
+
+  <!-- Action buttons ghim ở đáy -->
+  <div class="panel-foot">
+    <button class="btn-analyze" id="btn-run" onclick="runAnalysis()">
+      <span class="btn-text">RUN QUANTUM OPTIMIZER</span>
+    </button>
+    <button class="btn-trade" id="btn-trade-route" onclick="runTradeAnalysis()">
+      <span class="btn-text">CALCULATE TRADE ROUTES</span>
+    </button>
+  </div>
+
+</aside>
+
+<!-- ═══════════ SETTINGS MODAL (ĐÃ HỢP NHẤT DUY NHẤT 1 BẢNG) ═══════════ -->
+<div id="settings-modal">
+  <div class="settings-card">
+    <div class="settings-header">
+      <div class="settings-title" data-i18n="settings_title">SYSTEM PARAMETER CONFIGURATION</div>
+      <button class="btn-close-modal" onclick="toggleSettingsModal()">✕</button>
+    </div>
+
+    <div class="settings-tabs">
+      <button class="stab-btn active" onclick="switchSettingsTab('tab-weights', this)" data-i18n="stab_weights">Trọng số Canh tác</button>
+      <button class="stab-btn" onclick="switchSettingsTab('tab-appearance', this)" data-i18n="stab_ui">Giao diện &amp; Ngôn ngữ</button>
+    </div>
+
+    <div class="settings-body">
+      <!-- TAB 1: TRỌNG SỐ -->
+      <div id="tab-weights" class="stab-pane active">
+        <div class="section-label-tech" data-i18n="weights_label">WEIGHT PRIORITY MATRIX</div>
+        <div class="slider-group">
+          <div class="slider-row">
+            <span class="slider-name" data-i18n="w_soil">BẢO VỆ ĐẤT</span>
+            <span class="slider-val" id="val-soil">0.33</span>
+          </div>
+          <input type="range" id="sl-soil" min="0" max="1" step="0.01" value="0.33" oninput="document.getElementById('val-soil').textContent=parseFloat(this.value).toFixed(2)"/>
+        </div>
+        <div class="slider-group">
+          <div class="slider-row">
+            <span class="slider-name" data-i18n="w_water">TIẾT KIỆM NƯỚC</span>
+            <span class="slider-val" id="val-water">0.33</span>
+          </div>
+          <input type="range" id="sl-water" min="0" max="1" step="0.01" value="0.33" oninput="document.getElementById('val-water').textContent=parseFloat(this.value).toFixed(2)"/>
+        </div>
+        <div class="slider-group">
+          <div class="slider-row">
+            <span class="slider-name" data-i18n="w_profit">TỐI ĐA LỢI NHUẬN</span>
+            <span class="slider-val" id="val-profit">0.34</span>
+          </div>
+          <input type="range" id="sl-profit" min="0" max="1" step="0.01" value="0.34" oninput="document.getElementById('val-profit').textContent=parseFloat(this.value).toFixed(2)"/>
+        </div>
+      </div>
+
+      <!-- TAB 2: GIAO DIỆN & NGÔN NGỮ -->
+      <div id="tab-appearance" class="stab-pane">
+        <div class="select-group">
+          <div class="select-label" data-i18n="lang_label">NGÔN NGỮ HIỂN THỊ</div>
+          <select id="setting-lang" onchange="AppSettings.setLanguage(this.value)">
+            <option value="vi">Tiếng Việt (Vietnamese)</option>
+            <option value="en">English (International)</option>
+          </select>
+        </div>
+
+        <div>
+          <div class="select-label" data-i18n="theme_color_label" style="margin-bottom:6px">MÀU SẮC CHỦ ĐẠO</div>
+          <div class="theme-grid">
+            <button class="theme-swatch active" data-hex="#00f3ff" style="background:#00f3ff" onclick="AppSettings.setTheme('#00f3ff', '0, 243, 255')" title="Cyber Cyan"></button>
+            <button class="theme-swatch" data-hex="#10b981" style="background:#10b981" onclick="AppSettings.setTheme('#10b981', '16, 185, 129')" title="Emerald Bio"></button>
+            <button class="theme-swatch" data-hex="#a855f7" style="background:#a855f7" onclick="AppSettings.setTheme('#a855f7', '168, 85, 247')" title="Quantum Violet"></button>
+            <button class="theme-swatch" data-hex="#ffb703" style="background:#ffb703" onclick="AppSettings.setTheme('#ffb703', '255, 183, 3')" title="Solar Amber"></button>
+            <button class="theme-swatch" data-hex="#ff0055" style="background:#ff0055" onclick="AppSettings.setTheme('#ff0055', '255, 0, 85')" title="Mars Red"></button>
+          </div>
+        </div>
+
+        <div>
+          <div class="select-label" data-i18n="ui_style_label" style="margin-bottom:6px">PHONG CÁCH GIAO DIỆN</div>
+          <div class="ui-preset-grid">
+            <button class="preset-btn active" id="btn-style-hud" onclick="AppSettings.setUIStyle('hud')" data-i18n="style_hud">Sci-Fi HUD (Góc cạnh)</button>
+            <button class="preset-btn" id="btn-style-glass" onclick="AppSettings.setUIStyle('glass')" data-i18n="style_glass">Kính mờ (Glassmorphism)</button>
+          </div>
+        </div>
+
+        <button class="btn-random" onclick="AppSettings.resetAll()" data-i18n="btn_reset" style="margin-top:6px; color:#ff80a6; border-color:rgba(255,0,85,0.4); background:rgba(255,0,85,0.12);">
+          Khôi phục cấu hình mặc định
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MODAL THU MUA THƯƠNG MẠI (DÀNH CHO trade.js) ═══════════ -->
+<div id="modal-trade" class="modal-trade">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+    <h3 style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1rem; color: var(--teal); font-weight: 800;">TUYẾN ĐƯỜNG THU MUA &amp; GIÁ NÔNG SẢN</h3>
+    <button onclick="document.getElementById('modal-trade').classList.remove('show')" style="background:none; border:none; color:var(--dim); font-size:1.2rem; cursor:pointer;">✕</button>
+  </div>
+  <div id="trade-routes-content"></div>
+</div>
+
+<!-- ═══════════ RIGHT PANEL ═══════════ -->
+<aside id="right-panel" class="glass">
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('telemetry',this)">SATELLITE TELEMETRY</button>
+    <button class="tab-btn" onclick="switchTab('arena',this)">QUANTUM ARENA</button>
+  </div>
+
+  <!-- TAB 1: SATELLITE TELEMETRY -->
+  <div class="tab-content active" id="tab-telemetry">
+    <div class="sat-row">
+      <div class="sat-tag">POWER</div>
+      <div class="sat-info">
+        <div class="sat-name">NASA POWER CLIMATOLOGY</div>
+        <div class="sat-desc">Air Temp (T2M) · Solar Radiation · LST</div>
+      </div>
+      <div class="sat-values">
+        <div class="sat-val-main" id="sv-temp">—</div>
+        <div class="sat-val-sub" id="sv-temp-rng">Avg Temp</div>
+      </div>
+    </div>
+
+    <div class="sat-row">
+      <div class="sat-tag">SMAP</div>
+      <div class="sat-info">
+        <div class="sat-name">NASA SMAP SOIL MOISTURE</div>
+        <div class="sat-desc">GWETTOP · GWETROOT Moisture</div>
+      </div>
+      <div class="sat-values">
+        <div class="sat-val-main" id="sv-gwet">—</div>
+        <div class="sat-val-sub" id="sv-gwet-sub">Root Moisture</div>
+      </div>
+    </div>
+
+    <div class="sat-row">
+      <div class="sat-tag">GPM</div>
+      <div class="sat-info">
+        <div class="sat-name">GPM IMERG PRECIPITATION</div>
+        <div class="sat-desc">Precipitation Rate · Flood Index</div>
+      </div>
+      <div class="sat-values">
+        <div class="sat-val-main" id="sv-rain">—</div>
+        <div class="sat-val-sub" id="sv-rain-sub">Avg Rain/Month</div>
+      </div>
+    </div>
+
+    <div class="sat-row">
+      <div class="sat-tag">ECO</div>
+      <div class="sat-info">
+        <div class="sat-name">ECOSTRESS THERMAL LST</div>
+        <div class="sat-desc">Surface Temp (TS) · Stress Index</div>
+      </div>
+      <div class="sat-values">
+        <div class="sat-val-main" id="sv-ts">—</div>
+        <div class="sat-val-sub" id="sv-esi">ESI —</div>
+      </div>
+    </div>
+
+    <div class="sat-row">
+      <div class="sat-tag">MODIS</div>
+      <div class="sat-info">
+        <div class="sat-name">MODIS VEGETATION HEALTH</div>
+        <div class="sat-desc">NDVI Vegetation Index · Fertility</div>
+      </div>
+      <div class="sat-values">
+        <div class="sat-val-main" id="sv-ndvi">—</div>
+        <div class="sat-val-sub" id="sv-ndvi-sub">NDVI Avg</div>
+      </div>
+    </div>
+
+    <div class="mini-chart-wrap">
+      <div class="mini-chart-title">TEMPERATURE DYNAMICS (12 MONTHS)</div>
+      <canvas id="chart-temp" height="90"></canvas>
+    </div>
+    <div class="mini-chart-wrap">
+      <div class="mini-chart-title">PRECIPITATION &amp; SOIL MOISTURE BALANCE</div>
+      <canvas id="chart-rain" height="90"></canvas>
+    </div>
+    <div class="mini-chart-wrap">
+      <div class="mini-chart-title">VEGETATION HEALTH INDEX (NDVI)</div>
+      <canvas id="chart-ndvi" height="70"></canvas>
+    </div>
+  </div>
+
+  <!-- TAB 2: QUANTUM ARENA -->
+  <div class="tab-content" id="tab-arena">
+    <div class="match-score-wrap">
+      <div class="match-score-label">QUANTUM COMPATIBILITY SCORE</div>
+      <div class="match-score-val" id="match-score">—%</div>
+      <div class="match-score-desc" id="match-desc">Run analysis to compare rotation strategies</div>
+    </div>
+
+    <div class="arena-block user-block">
+      <div class="arena-block-header">
+        <div class="arena-label" style="color:var(--cyan)">USER STRATEGY</div>
+        <div class="rank-chip" id="user-rank">—</div>
+      </div>
+      <div class="crop-tags" id="user-tags">
+        <span style="font-size:0.75rem;color:var(--dim)">Configure crops and initiate quantum solver…</span>
+      </div>
+      <div id="user-hp-soil"></div>
+      <div id="user-hp-water"></div>
+      <div id="user-hp-profit"></div>
+    </div>
+
+    <div class="arena-block quantum-block">
+      <div class="arena-block-header">
+        <div class="arena-label" style="color:var(--purple)">QUANTUM AI OPTIMAL</div>
+        <div class="rank-chip" id="q-rank">—</div>
+      </div>
+      <div class="q-method" id="q-method">Awaiting execution…</div>
+      <div class="crop-tags" id="q-tags"></div>
+      <div id="q-hp-soil"></div>
+      <div id="q-hp-water"></div>
+      <div id="q-hp-profit"></div>
+    </div>
+
+    <div class="radar-wrap">
+      <div class="mini-chart-title">STRATEGY COMPARISON RADAR</div>
+      <canvas id="chart-radar" height="220"></canvas>
+    </div>
+  </div>
+</aside>
+
+<div id="map-hint">TARGET LOCATION: CLICK ANYWHERE ON MAP TO PLACE MARKER</div>
+
+<!-- ═══════════ JAVASCRIPT HELPERS ═══════════ -->
+<script>
+function toggleAcc(btn) {
+  const card = btn.closest('.acc-card');
+  card.classList.toggle('open');
+}
+
+function toggleSettingsModal() {
+  const modal = document.getElementById('settings-modal');
+  modal.classList.toggle('active');
+}
+
+function switchSettingsTab(tabId, btn) {
+  document.querySelectorAll('.stab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.stab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+
+<script src="js/state.js"></script>
+<script src="js/map.js"></script>
+<script src="js/heatmap-core.js"></script>
+<script src="js/heatmap.js"></script>
+<script src="js/geocoder.js"></script>
+<script src="js/ui-helpers.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/render.js"></script>
+<script src="js/analysis.js"></script>
+<script src="/js/trade.js"></script>
+</body>
+</html>
