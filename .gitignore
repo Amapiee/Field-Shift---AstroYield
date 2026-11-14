@@ -1,7 +1,7 @@
-node_modules/
-dist/
-coverage/
-*.log
+#Dependecy diẻctories
+**/mode_module/
+
 .env
-.env.*
-!.env.example
+scripts/.cache/
+src/.cache
+src/.temp/
