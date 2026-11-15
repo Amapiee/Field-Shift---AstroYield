@@ -18,7 +18,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
 <!-- Custom CSS -->
-<link rel="stylesheet" href="css/style.css"/>
+<link rel="stylesheet" href="css/style.css?v=analysis-failure1"/>
 <link rel="stylesheet" href="css/tooltips.css"/>
 </head>
 <body>
@@ -463,6 +463,7 @@
     <table class="crop-ranking-table"><thead><tr><th>#</th><th>Cây / Mức phù hợp</th><th>Điểm</th><th>Tháng gợi ý</th></tr></thead><tbody id="crop-ranking-body"></tbody></table>
     <div id="crop-ranking-note"></div>
   </details>
+  <div id="right-panel-splitter" role="separator" tabindex="0" aria-orientation="horizontal" aria-label="Điều chỉnh chiều cao hai phần" aria-valuemin="15" aria-valuemax="80" aria-valuenow="40" title="Kéo lên / xuống để đổi chiều cao">↕</div>
   <div class="tab-content active" id="tab-telemetry">
     <details id="data-details" class="mini-chart-wrap">
       <summary>📡 Nguồn dữ liệu &amp; chi tiết phân tích</summary>
@@ -591,6 +592,13 @@
       <div id="q-hp-water"></div>
       <div id="q-hp-profit"></div>
       <div id="q-season-risks"></div>
+      <div id="q-crop-charts">
+        <p class="season-fit-note">Mức phù hợp khí hậu · 0–100 điểm. Không phải xác suất sống hay năng suất; kế hoạch tối ưu còn xét luân canh, đất, nước và lợi ích.</p>
+        <p id="q-crop-chart-status">Chạy phân tích để xem điểm từng vụ.</p>
+        <section><h4>Vụ 1 · T1–T4</h4><div class="season-fit-chart"><canvas id="q-crops-1" role="img" aria-label="Mức phù hợp của 5 cây trong vụ 1"></canvas></div></section>
+        <section><h4>Vụ 2 · T5–T8</h4><div class="season-fit-chart"><canvas id="q-crops-2" role="img" aria-label="Mức phù hợp của 5 cây trong vụ 2"></canvas></div></section>
+        <section><h4>Vụ 3 · T9–T12</h4><div class="season-fit-chart"><canvas id="q-crops-3" role="img" aria-label="Mức phù hợp của 5 cây trong vụ 3"></canvas></div></section>
+      </div>
     </div>
   </div>
 </aside>
@@ -598,6 +606,12 @@
 <div id="map-hint">🖱️ Click anywhere on the map to place your farm marker</div>
 
 <!-- ═══════════ WATER WARNING MODAL ═══════════ -->
+<dialog id="analysis-failure" aria-labelledby="analysis-failure-title" aria-describedby="analysis-failure-message">
+  <h2 id="analysis-failure-title">Phân tích không thành công</h2>
+  <p id="analysis-failure-coords"></p>
+  <p id="analysis-failure-message"></p>
+  <form method="dialog"><button type="submit" autofocus>Đóng</button></form>
+</dialog>
 <div id="water-alert" class="water-alert-modal" role="alert" aria-live="assertive">
   <div class="water-alert-icon">
     <svg class="siren-svg" viewBox="0 0 54 54" width="46" height="46" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -672,6 +686,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <!-- Scripts -->
+<script src="js/panel-splitter.js?v=1"></script>
 <script src="js/state.js?v=terrain2"></script>
 <script src="js/location.js?v=terrain2"></script>
 <script src="js/map.js?v=terrain2"></script>
@@ -686,7 +701,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="js/render.js?v=terrain2"></script>
 <script src="js/crop-recommendations.js?v=seasonal1"></script>
 <script src="js/settings.js?v=terrain2"></script>
-<script src="js/analysis.js?v=terrain2"></script>
+<script src="js/analysis.js?v=analysis-failure1"></script>
 <script src="js/crop-bubbles.js?v=terrain2"></script>
 </body>
 </html>

@@ -17,7 +17,7 @@ const {
   buildSatelliteSummary,
 } = require("../services/nasa");
 const { fetchExternalData } = require("../services/external");
-const { buildCropRanking } = require("../services/cropRanking");
+const { buildCropRanking, buildSeasonCropRankings } = require("../services/cropRanking");
 const {
   fetchColdHistory,
   fetchElevation,
@@ -567,6 +567,7 @@ function createApiRouter({
         },
         satellite,
         crop_rankings: buildCropRanking(nasa, {terrain:nasa._terrain}),
+        seasonal_crop_rankings: buildSeasonCropRankings(nasa),
         alerts: alerts.slice(0, 10),
         monthly: {
           T2M_MIN_HISTORY: nasa._cold_risk.months.map((m) => m.daily?.minimum_tmin_c ?? null),

@@ -5,3 +5,4 @@
 scripts/.cache/
 src/.cache/
 src/.temp/
+src/.temp-*

@@ -43,14 +43,30 @@ function buildCropRanking(data, { terrain = {} } = {}) {
     const best=windows[0], score=best.raw_score_pct;
     return {crop:key,label:CROPS[key].label,color:CROPS[key].color,...best,
       suitability_class:score>=75?"S1":score>=55?"S2":score>=35?"S3":"N",
-      grade:score>=75?"Rất phù hợp":score>=55?"Phù hợp":score>=35?"Có điều kiện":"Tương thích thấp",
+      grade:score>=75?"Rất phù hợp":score>=55?"Phù hợp":score>=35?"Trung bình":"Tương thích thấp",
       display_floor_applied:score<1, windows};
   }).sort((a,b)=>b.raw_score_pct-a.raw_score_pct || a.crop.localeCompare(b.crop));
   return {status:"available",rows:rows.map((row,index)=>({...row,rank:index+1})),
     method:"seasonal_crop_fit_v2_peaked",score_kind:"relative_climate_suitability_not_survival_probability",
     terrain_caution:terrain.climate_representativeness === "limited_by_elevation_difference",
-    note:"Xếp hạng theo mùa thuận lợi nhất, không phải xác suất sống/năng suất. Mốc hiển thị tối thiểu 1% = tương thích rất thấp; không xác nhận đất canh tác. Cần kiểm tra giống, độ dốc, đất và tưới tại chỗ.",
+    note:"Xếp hạng theo mùa thuận lợi nhất, không phải năng suất. Mốc hiển thị tối thiểu 1% nghĩa là tương thích rất thấp. Cần kiểm tra giống, độ dốc, đất và tưới tại chỗ.",
     references:["https://www.fao.org/4/T0715E/t0715e06.htm","https://www.fao.org/4/y7231e/y7231e04.htm"]};
 }
 
-module.exports={buildCropRanking};
+function buildSeasonCropRankings(data) {
+  const { buildSeasonEnvironments } = require('../algorithms/13_crop_rotation_optimization_qaoa_milp');
+  const { SEASON_IDX } = require('../config/crops');
+  if (data?._mock || data?._unavailable) return [];
+  return buildSeasonEnvironments(data).map((environment, index) => ({
+    season: index + 1,
+    months: SEASON_IDX[index].map(month => month + 1),
+    rows: CROP_KEYS.filter(crop => crop !== 'Fallow').map(crop => {
+      const fit = computeCropSeasonSuitability(crop, environment, { continuousFit: true });
+      return { crop, label: CROPS[crop].label, color: CROPS[crop].color,
+        score: fit.suitability_score, reason: fit.reason || '',
+        excluded: !!(fit.model_excluded || fit.is_lethal) };
+    }).sort((a,b) => b.score-a.score || a.crop.localeCompare(b.crop)),
+  }));
+}
+
+module.exports={buildCropRanking,buildSeasonCropRankings};

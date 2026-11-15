@@ -241,6 +241,7 @@ function updateUI(data) {
   if (typeof CropRecommendations !== "undefined" && data.crop_rankings) CropRecommendations.accept(data);
 
   // Charts
+  if (typeof buildSeasonCropCharts === "function") buildSeasonCropCharts(data.seasonal_crop_rankings || []);
   if (data.monthly && typeof buildCharts === "function") buildCharts(data.monthly);
 
   // Match score

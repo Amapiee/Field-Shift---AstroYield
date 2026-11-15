@@ -1,4 +1,30 @@
 let analysisInFlight = false;
+const ANALYSIS_TIMEOUT_MS = 60000;
+
+function showAnalysisFailure(message, lat, lon) {
+  const dialog = document.getElementById("analysis-failure");
+  const detail = document.getElementById("analysis-failure-message");
+  const coords = document.getElementById("analysis-failure-coords");
+  if (detail) detail.textContent = message;
+  if (coords) coords.textContent = `Điểm chọn: ${lat.toFixed(3)}°, ${lon.toFixed(3)}°`;
+  if (typeof dialog?.showModal === "function") {
+    if (!dialog.open) dialog.showModal();
+  } else {
+    alert(`Phân tích không thành công\n${message}`);
+  }
+}
+
+function analysisFailureMessage(data) {
+  const missing = Array.isArray(data.missing_variables) ? data.missing_variables : [];
+  const suspect = Array.isArray(data.suspect_variables) ? data.suspect_variables : [];
+  if (missing.length) {
+    return `Không đủ dữ liệu khí hậu để phân tích tại điểm này. Thiếu: ${missing.join(", ")}. Hãy thử lại hoặc chọn vị trí khác.`;
+  }
+  if (data.source_status === "low_quality" || suspect.length) {
+    return `Dữ liệu khí hậu${suspect.length ? ` (${suspect.join(", ")})` : ""} cần kiểm tra chất lượng nên chưa thể phân tích. Hãy chọn vị trí khác hoặc thử lại khi dữ liệu được cập nhật.`;
+  }
+  return data.error || data.reason || "Không đủ dữ liệu để phân tích. Hãy thử lại hoặc chọn vị trí khác.";
+}
 
 const LOAD_STEPS = [
   "🌊 Validating location and terrain constraints…",
@@ -32,6 +58,7 @@ function stopLoadingSteps() {
 }
 
 function resetDashboardUI() {
+  if (typeof buildSeasonCropCharts === "function") buildSeasonCropCharts([]);
   if (typeof setAnalysisMessage === "function") setAnalysisMessage("");
   for (const id of ["source-reason", "solver-details", "spi-summary", "ext-api-status", "ext-api-desc"]) {
     const element = document.getElementById(id);
@@ -181,7 +208,10 @@ async function runAnalysis() {
   const controller = typeof AbortController === "function" ? new AbortController() : null;
   let timedOut = false;
   let deadline = null;
+  let failureMessage = null;
   try {
+    const dialog = document.getElementById("analysis-failure");
+    if (dialog?.open && typeof dialog.close === "function") dialog.close();
     resetDashboardUI();
     document.getElementById("loading")?.classList.add("show");
     for (const id of ["btn-run", "btn-run-footer"]) {
@@ -191,18 +221,25 @@ async function runAnalysis() {
     startLoadingSteps();
     if (typeof closeWaterAlert === "function") closeWaterAlert();
 
-    deadline = setTimeout(() => {
-      timedOut = true;
-      if (controller) controller.abort();
-    }, 60000);
-
-    const response = await fetch("/api/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      ...(controller ? { signal: controller.signal } : {}),
+    // Bound both the request and body read, including environments where abort
+    // is unavailable or a request does not respond to cancellation.
+    const timeout = new Promise((_, reject) => {
+      deadline = setTimeout(() => {
+        timedOut = true;
+        reject(new Error("Analysis timed out"));
+        if (controller) controller.abort();
+      }, ANALYSIS_TIMEOUT_MS);
     });
-    const data = await response.json();
+    const request = (async () => {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        ...(controller ? { signal: controller.signal } : {}),
+      });
+      return { response, data: await response.json() };
+    })();
+    const { response, data } = await Promise.race([request, timeout]);
 
     if (!isCurrent()) {
       const description = document.getElementById("match-desc");
@@ -235,7 +272,7 @@ async function runAnalysis() {
     if (sourceBadge) {
       sourceBadge.textContent = `Source: ${data.source || "Nguồn chưa khả dụng"} · ${data.data_mode || data.source_status || "unavailable"} · Không có khuyến nghị`;
     }
-    const message = data.error || data.reason || "Không có đủ dữ liệu.";
+    const message = analysisFailureMessage(data);
     const description = document.getElementById("match-desc");
     if (description) description.textContent = message;
     if (typeof renderColdRisk === "function") renderColdRisk(data);
@@ -250,17 +287,19 @@ async function runAnalysis() {
     if (data.is_ice && typeof showIceAlert === "function") showIceAlert(data.error);
     else if (data.is_water && typeof showWaterAlert === "function") showWaterAlert(data.error);
     else if (data.location?.requires_verification && typeof showCoastalAlert === "function") showCoastalAlert(data.error);
+    else failureMessage = message + terrainMessage;
   } catch (error) {
     if (!isCurrent()) return;
     resetDashboardUI();
     const sourceBadge = document.getElementById("data-source-badge");
     if (sourceBadge) sourceBadge.textContent = "Source: unavailable";
     const message = timedOut
-      ? "Phân tích quá thời gian chờ 60 giây; vui lòng thử lại."
+      ? "Đã hết thời gian chờ 60 giây, chưa nhận đủ dữ liệu để hoàn tất phân tích. Vui lòng kiểm tra kết nối và thử lại hoặc chọn vị trí khác."
       : `Không thể tải phân tích: ${error.message}`;
     const description = document.getElementById("match-desc");
     if (description) description.textContent = message;
     if (typeof setAnalysisMessage === "function") setAnalysisMessage(message);
+    failureMessage = message;
   } finally {
     if (deadline !== null && typeof clearTimeout === "function") clearTimeout(deadline);
     stopLoadingSteps();
@@ -270,10 +309,13 @@ async function runAnalysis() {
       if (button) button.disabled = false;
     }
     analysisInFlight = false;
+    // Show the popup only after removing the loading overlay and unlocking Run.
+    if (failureMessage && isCurrent()) showAnalysisFailure(failureMessage, lat, lon);
   }
 }
 
 document.addEventListener("keydown", (event) => {
+  if (document.getElementById("analysis-failure")?.open) return;
   if (event.key === "Enter" && !["INPUT", "SELECT", "TEXTAREA"].includes(event.target.tagName)) {
     event.preventDefault();
     runAnalysis();

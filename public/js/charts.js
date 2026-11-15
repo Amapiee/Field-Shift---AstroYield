@@ -126,3 +126,39 @@ function buildRadar(scenarios) {
   });
 }
 
+
+let seasonCropCharts = [];
+function buildSeasonCropCharts(seasons) {
+  seasonCropCharts.forEach(destroyChart);
+  seasonCropCharts = [];
+  const status = document.getElementById('q-crop-chart-status');
+  if (status) status.textContent = seasons.length ? '' : 'Chưa có dữ liệu điểm theo vụ. Hãy chạy phân tích.';
+  for (let index = 0; index < 3; index++) {
+    const canvas = document.getElementById(`q-crops-${index+1}`);
+    if (!canvas) continue;
+    const season = seasons.find(item => item.season === index+1);
+    const rows = (season?.rows || []).filter(row => Number.isFinite(row.score))
+      .slice().sort((a,b) => b.score-a.score || a.crop.localeCompare(b.crop));
+    canvas.setAttribute?.('aria-label', rows.length
+      ? `Vụ ${index+1}: ${rows.map(row=>`${row.label}: ${row.score.toFixed(1)} điểm`).join('; ')}`
+      : `Vụ ${index+1}: chưa có dữ liệu`);
+    if (!rows.length) continue;
+    seasonCropCharts.push(new Chart(canvas, {
+      type: 'bar',
+      data: {labels: rows.map(row=>row.label), datasets: [{label:'Mức phù hợp khí hậu',
+        data:rows.map(row=>row.score), backgroundColor:rows.map(row=>row.color), borderRadius:3}]},
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{
+          label:context=>`${context.parsed.y.toFixed(1)} / 100 điểm`,
+          afterLabel:context=>rows[context.dataIndex].reason || ''
+        }}},
+        scales:{
+          x:{ticks:{color:'#94a3b8',font:{size:10},minRotation:35,maxRotation:35},grid:{display:false}},
+          y:{min:0,max:100,title:{display:true,text:'Mức phù hợp (điểm)',color:'#94a3b8'},
+            ticks:{color:'#94a3b8',stepSize:25},grid:{color:'rgba(148,163,184,0.12)'}}
+        }
+      }
+    }));
+  }
+}
