@@ -1,0 +1,12 @@
+
+  🛰️  FarmShift Server starting on http://localhost:3000
+  🐞 DEBUG mode: ON
+
+[debug] analyze body: {"lat":13.7532,"lon":101.6945,"w_soil":0.33,"w_water":0.33,"w_profit":0.34,"user_crops":["Rice","Soybean","Maize"]}
+[debug] 1. NASA fetch + QC + derived: 1833ms (climatology)
+[debug] 2. scoring baseline + user: 1ms 
+[debug] 3. quantum QAOA: 37ms crops=Peanut,Soybean,Rice ok=true
+[debug] analyze body: {"lat":13.7532,"lon":101.6945,"w_soil":0.33,"w_water":0.33,"w_profit":0.34,"user_crops":["Rice","Soybean","Maize"]}
+[debug] 1. NASA fetch + QC + derived: 1066ms (climatology)
+[debug] 2. scoring baseline + user: 0ms 
+[debug] 3. quantum QAOA: 27ms crops=Peanut,Soybean,Rice ok=true

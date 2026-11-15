@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "DEBUG=1 node --watch server.js",
+    "dev": "node scripts/dev.js",
     "test": "node --test",
     "build:grid": "node scripts/build-climate-grid.js",
     "build:trade": "node scripts/build-trade-flows.js",

@@ -34,8 +34,9 @@ test("unwrapLon: bỏ bước nhảy 360", () => {
 
 test("widthFor / fmtKt", () => {
   assert.ok(T.widthFor(100, 100) > T.widthFor(25, 100));
-  assert.strictEqual(T.widthFor(0, 100), 1.2);
-  assert.strictEqual(T.widthFor(5, 0), 1.2);
+  assert.strictEqual(T.widthFor(0, 100), 1.6);
+  assert.strictEqual(T.widthFor(5, 0), 1.6);
+  assert.strictEqual(T.widthFor(0, 100, 1.2), 1.2);
   assert.strictEqual(T.fmtKt(60000), "60 Mt");
   assert.strictEqual(T.fmtKt(2800), "2.8 Mt");
   assert.strictEqual(T.fmtKt(150), "150 kt");
@@ -71,7 +72,8 @@ test("selectFlows: lọc cây, phương thức, topN riêng từng cây, sắp l
   assert.ok(rice.length <= 5 && rice.length > 0);
   assert.ok(rice.every((i) => i.crop === "Rice" && i.mode === "sea"));
   for (let i = 1; i < rice.length; i++) assert.ok(rice[i].kt >= rice[i - 1].kt);
-  assert.strictEqual(rice[rice.length - 1].flow.from, "VNM");       // luồng gạo lớn nhất mẫu: VNM→PHL
+  const maxRiceSea = Math.max(...flows.flows.filter(f => f.crop === "Rice" && f.modes.sea).map(f => f.modes.sea.kt));
+  assert.strictEqual(rice[rice.length - 1].kt, maxRiceSea);
   const all = T.selectFlows(flows, hubs, { crop: "all", modes: ALL, topN: 3 });
   const crops = new Set(all.map((i) => i.crop));
   assert.strictEqual(crops.size, 11);
@@ -82,7 +84,7 @@ test("selectFlows: lọc cây, phương thức, topN riêng từng cây, sắp l
   assert.strictEqual(noAirRice.length, 0);
 });
 
-test("pathFor + hubUsage: air dùng sân bay, sea dùng cảng, land không tạo hub", () => {
+test("pathFor + hubUsage: air dùng sân bay, sea dùng cảng, land giữ hub nội địa", () => {
   const items = T.selectFlows(flows, hubs, { crop: ["Asparagus", "Beans"], modes: ALL, topN: 40 });
   const air = items.find((i) => i.mode === "air");
   const p = T.pathFor(air, hubs);
@@ -90,7 +92,14 @@ test("pathFor + hubUsage: air dùng sân bay, sea dùng cảng, land không tạ
   const usage = T.hubUsage(items, hubs);
   assert.ok([...usage.values()].some((u) => u.kind === "air"));
   const landOnly = T.selectFlows(flows, hubs, { crop: ["Asparagus", "Beans"], modes: { sea: false, air: false, land: true }, topN: 40 });
-  assert.strictEqual(T.hubUsage(landOnly, hubs).size, 0);
+  const landHubs = T.hubUsage(landOnly, hubs);
+  assert.ok(landHubs.size > 0);
+  assert.ok([...landHubs.values()].every(hub => hub.kind === "land"));
+  for (const item of landOnly) {
+    const path = T.pathFor(item, hubs), from = landHubs.get(`land:${item.flow.from}`), to = landHubs.get(`land:${item.flow.to}`);
+    assert.deepStrictEqual(path[0], [from.lat,from.lon]);
+    assert.deepStrictEqual(path.at(-1), [to.lat,to.lon]);
+  }
 });
 
 test("escapeHtml chặn XSS từ tên OSM", () => {

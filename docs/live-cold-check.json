@@ -1,0 +1,618 @@
+{
+  "kind": "live_source_smoke_check",
+  "coordinates": {
+    "lat": 30.49,
+    "lon": 79.13
+  },
+  "checked_at": "2026-11-14T17:46:17.012Z",
+  "climatology": "climatology",
+  "climatology_error": null,
+  "daily_status": "reanalysis",
+  "daily_error": null,
+  "elevation": {
+    "value": 1484,
+    "unit": "m",
+    "status": "dem",
+    "source": "NASA/NGA SRTM v3 via Open Topo Data",
+    "product": "srtm90m",
+    "spatial_resolution": "3 arc-seconds (~90 m at equator)",
+    "period": "SRTM acquisition February 2000",
+    "vertical_reference": "SRTM elevation above sea level",
+    "limitations": "DEM pixel elevation, not a ground survey. No slope, snow cover or lapse-rate correction is inferred.",
+    "cache_used": false
+  },
+  "climatology_messages": [
+    "The requested parameters are retrieved from a pre-computed climatological period (January 2001 - December 2025)"
+  ],
+  "cold_risk": {
+    "status": "available",
+    "climatology_period": {
+      "start": "2001-01",
+      "end": "2025-12",
+      "source": "NASA response message"
+    },
+    "source": "NASA POWER daily / MERRA-2",
+    "period": {
+      "start": "2021-01-01",
+      "end": "2025-12-31"
+    },
+    "daily_history": {
+      "status": "available",
+      "months": [
+        {
+          "month": 1,
+          "expected_days": 155,
+          "valid_days": 155,
+          "missing_days": 0,
+          "freezing_days": 154,
+          "years_with_freezing": [
+            2021,
+            2022,
+            2023,
+            2024,
+            2025
+          ],
+          "minimum_tmin_c": -16.42,
+          "coldest_date": "2022-01-15",
+          "longest_freezing_run_days": 31,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        {
+          "month": 2,
+          "expected_days": 141,
+          "valid_days": 141,
+          "missing_days": 0,
+          "freezing_days": 133,
+          "years_with_freezing": [
+            2021,
+            2022,
+            2023,
+            2024,
+            2025
+          ],
+          "minimum_tmin_c": -16.95,
+          "coldest_date": "2022-02-05",
+          "longest_freezing_run_days": 29,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        {
+          "month": 3,
+          "expected_days": 155,
+          "valid_days": 155,
+          "missing_days": 0,
+          "freezing_days": 113,
+          "years_with_freezing": [
+            2021,
+            2022,
+            2023,
+            2024,
+            2025
+          ],
+          "minimum_tmin_c": -11.24,
+          "coldest_date": "2024-03-08",
+          "longest_freezing_run_days": 24,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        {
+          "month": 4,
+          "expected_days": 150,
+          "valid_days": 150,
+          "missing_days": 0,
+          "freezing_days": 39,
+          "years_with_freezing": [
+            2021,
+            2022,
+            2023,
+            2024,
+            2025
+          ],
+          "minimum_tmin_c": -4.81,
+          "coldest_date": "2023-04-05",
+          "longest_freezing_run_days": 9,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        {
+          "month": 5,
+          "expected_days": 155,
+          "valid_days": 155,
+          "missing_days": 0,
+          "freezing_days": 1,
+          "years_with_freezing": [
+            2024
+          ],
+          "minimum_tmin_c": -1.13,
+          "coldest_date": "2024-05-02",
+          "longest_freezing_run_days": 1,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        {
+          "month": 6,
+          "expected_days": 150,
+          "valid_days": 150,
+          "missing_days": 0,
+          "freezing_days": 0,
+          "years_with_freezing": [],
+          "minimum_tmin_c": 2.41,
+          "coldest_date": "2025-06-04",
+          "longest_freezing_run_days": 0,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        {
+          "month": 7,
+          "expected_days": 155,
+          "valid_days": 155,
+          "missing_days": 0,
+          "freezing_days": 0,
+          "years_with_freezing": [],
+          "minimum_tmin_c": 7.41,
+          "coldest_date": "2021-07-04",
+          "longest_freezing_run_days": 0,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        {
+          "month": 8,
+          "expected_days": 155,
+          "valid_days": 155,
+          "missing_days": 0,
+          "freezing_days": 0,
+          "years_with_freezing": [],
+          "minimum_tmin_c": 8.24,
+          "coldest_date": "2023-08-29",
+          "longest_freezing_run_days": 0,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        {
+          "month": 9,
+          "expected_days": 150,
+          "valid_days": 150,
+          "missing_days": 0,
+          "freezing_days": 0,
+          "years_with_freezing": [],
+          "minimum_tmin_c": 5.43,
+          "coldest_date": "2023-09-27",
+          "longest_freezing_run_days": 0,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        {
+          "month": 10,
+          "expected_days": 155,
+          "valid_days": 155,
+          "missing_days": 0,
+          "freezing_days": 15,
+          "years_with_freezing": [
+            2021,
+            2022,
+            2023,
+            2025
+          ],
+          "minimum_tmin_c": -2.97,
+          "coldest_date": "2021-10-28",
+          "longest_freezing_run_days": 7,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        {
+          "month": 11,
+          "expected_days": 150,
+          "valid_days": 150,
+          "missing_days": 0,
+          "freezing_days": 85,
+          "years_with_freezing": [
+            2021,
+            2022,
+            2023,
+            2024,
+            2025
+          ],
+          "minimum_tmin_c": -7.71,
+          "coldest_date": "2025-11-23",
+          "longest_freezing_run_days": 10,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        {
+          "month": 12,
+          "expected_days": 155,
+          "valid_days": 155,
+          "missing_days": 0,
+          "freezing_days": 137,
+          "years_with_freezing": [
+            2021,
+            2022,
+            2023,
+            2024,
+            2025
+          ],
+          "minimum_tmin_c": -12.38,
+          "coldest_date": "2021-12-19",
+          "longest_freezing_run_days": 29,
+          "coverage_pct": 100,
+          "status": "complete"
+        }
+      ],
+      "period": {
+        "start": "2021-01-01",
+        "end": "2025-12-31"
+      },
+      "source": "NASA POWER daily / MERRA-2",
+      "time_standard": "LST",
+      "limitations": "Counts are historical reanalysis days with 2m air Tmin below 0°C. They do not measure frost on leaves, hours below a threshold, crop death or forecast probability."
+    },
+    "months": [
+      {
+        "month": 1,
+        "mean_temperature_c": -2.41,
+        "climatology_tmin_c": -18.23,
+        "daily": {
+          "month": 1,
+          "expected_days": 155,
+          "valid_days": 155,
+          "missing_days": 0,
+          "freezing_days": 154,
+          "years_with_freezing": [
+            2021,
+            2022,
+            2023,
+            2024,
+            2025
+          ],
+          "minimum_tmin_c": -16.42,
+          "coldest_date": "2022-01-15",
+          "longest_freezing_run_days": 31,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        "frost_risk": "detected",
+        "evidence": [
+          "daily_reanalysis_below_zero",
+          "climatological_minimum_below_zero",
+          "monthly_mean_below_zero"
+        ],
+        "mortality_confirmed": false
+      },
+      {
+        "month": 2,
+        "mean_temperature_c": -1.02,
+        "climatology_tmin_c": -17.19,
+        "daily": {
+          "month": 2,
+          "expected_days": 141,
+          "valid_days": 141,
+          "missing_days": 0,
+          "freezing_days": 133,
+          "years_with_freezing": [
+            2021,
+            2022,
+            2023,
+            2024,
+            2025
+          ],
+          "minimum_tmin_c": -16.95,
+          "coldest_date": "2022-02-05",
+          "longest_freezing_run_days": 29,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        "frost_risk": "detected",
+        "evidence": [
+          "daily_reanalysis_below_zero",
+          "climatological_minimum_below_zero",
+          "monthly_mean_below_zero"
+        ],
+        "mortality_confirmed": false
+      },
+      {
+        "month": 3,
+        "mean_temperature_c": 2.78,
+        "climatology_tmin_c": -14.65,
+        "daily": {
+          "month": 3,
+          "expected_days": 155,
+          "valid_days": 155,
+          "missing_days": 0,
+          "freezing_days": 113,
+          "years_with_freezing": [
+            2021,
+            2022,
+            2023,
+            2024,
+            2025
+          ],
+          "minimum_tmin_c": -11.24,
+          "coldest_date": "2024-03-08",
+          "longest_freezing_run_days": 24,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        "frost_risk": "detected",
+        "evidence": [
+          "daily_reanalysis_below_zero",
+          "climatological_minimum_below_zero"
+        ],
+        "mortality_confirmed": false
+      },
+      {
+        "month": 4,
+        "mean_temperature_c": 7.58,
+        "climatology_tmin_c": -7.09,
+        "daily": {
+          "month": 4,
+          "expected_days": 150,
+          "valid_days": 150,
+          "missing_days": 0,
+          "freezing_days": 39,
+          "years_with_freezing": [
+            2021,
+            2022,
+            2023,
+            2024,
+            2025
+          ],
+          "minimum_tmin_c": -4.81,
+          "coldest_date": "2023-04-05",
+          "longest_freezing_run_days": 9,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        "frost_risk": "detected",
+        "evidence": [
+          "daily_reanalysis_below_zero",
+          "climatological_minimum_below_zero"
+        ],
+        "mortality_confirmed": false
+      },
+      {
+        "month": 5,
+        "mean_temperature_c": 11.18,
+        "climatology_tmin_c": -3.6,
+        "daily": {
+          "month": 5,
+          "expected_days": 155,
+          "valid_days": 155,
+          "missing_days": 0,
+          "freezing_days": 1,
+          "years_with_freezing": [
+            2024
+          ],
+          "minimum_tmin_c": -1.13,
+          "coldest_date": "2024-05-02",
+          "longest_freezing_run_days": 1,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        "frost_risk": "detected",
+        "evidence": [
+          "daily_reanalysis_below_zero",
+          "climatological_minimum_below_zero"
+        ],
+        "mortality_confirmed": false
+      },
+      {
+        "month": 6,
+        "mean_temperature_c": 13.48,
+        "climatology_tmin_c": 3.53,
+        "daily": {
+          "month": 6,
+          "expected_days": 150,
+          "valid_days": 150,
+          "missing_days": 0,
+          "freezing_days": 0,
+          "years_with_freezing": [],
+          "minimum_tmin_c": 2.41,
+          "coldest_date": "2025-06-04",
+          "longest_freezing_run_days": 0,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        "frost_risk": "not_detected_in_available_data",
+        "evidence": [],
+        "mortality_confirmed": false
+      },
+      {
+        "month": 7,
+        "mean_temperature_c": 13.9,
+        "climatology_tmin_c": 5.16,
+        "daily": {
+          "month": 7,
+          "expected_days": 155,
+          "valid_days": 155,
+          "missing_days": 0,
+          "freezing_days": 0,
+          "years_with_freezing": [],
+          "minimum_tmin_c": 7.41,
+          "coldest_date": "2021-07-04",
+          "longest_freezing_run_days": 0,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        "frost_risk": "not_detected_in_available_data",
+        "evidence": [],
+        "mortality_confirmed": false
+      },
+      {
+        "month": 8,
+        "mean_temperature_c": 13.25,
+        "climatology_tmin_c": 6.59,
+        "daily": {
+          "month": 8,
+          "expected_days": 155,
+          "valid_days": 155,
+          "missing_days": 0,
+          "freezing_days": 0,
+          "years_with_freezing": [],
+          "minimum_tmin_c": 8.24,
+          "coldest_date": "2023-08-29",
+          "longest_freezing_run_days": 0,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        "frost_risk": "not_detected_in_available_data",
+        "evidence": [],
+        "mortality_confirmed": false
+      },
+      {
+        "month": 9,
+        "mean_temperature_c": 11.23,
+        "climatology_tmin_c": 3.39,
+        "daily": {
+          "month": 9,
+          "expected_days": 150,
+          "valid_days": 150,
+          "missing_days": 0,
+          "freezing_days": 0,
+          "years_with_freezing": [],
+          "minimum_tmin_c": 5.43,
+          "coldest_date": "2023-09-27",
+          "longest_freezing_run_days": 0,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        "frost_risk": "not_detected_in_available_data",
+        "evidence": [],
+        "mortality_confirmed": false
+      },
+      {
+        "month": 10,
+        "mean_temperature_c": 6.91,
+        "climatology_tmin_c": -3.14,
+        "daily": {
+          "month": 10,
+          "expected_days": 155,
+          "valid_days": 155,
+          "missing_days": 0,
+          "freezing_days": 15,
+          "years_with_freezing": [
+            2021,
+            2022,
+            2023,
+            2025
+          ],
+          "minimum_tmin_c": -2.97,
+          "coldest_date": "2021-10-28",
+          "longest_freezing_run_days": 7,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        "frost_risk": "detected",
+        "evidence": [
+          "daily_reanalysis_below_zero",
+          "climatological_minimum_below_zero"
+        ],
+        "mortality_confirmed": false
+      },
+      {
+        "month": 11,
+        "mean_temperature_c": 3.46,
+        "climatology_tmin_c": -9.64,
+        "daily": {
+          "month": 11,
+          "expected_days": 150,
+          "valid_days": 150,
+          "missing_days": 0,
+          "freezing_days": 85,
+          "years_with_freezing": [
+            2021,
+            2022,
+            2023,
+            2024,
+            2025
+          ],
+          "minimum_tmin_c": -7.71,
+          "coldest_date": "2025-11-23",
+          "longest_freezing_run_days": 10,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        "frost_risk": "detected",
+        "evidence": [
+          "daily_reanalysis_below_zero",
+          "climatological_minimum_below_zero"
+        ],
+        "mortality_confirmed": false
+      },
+      {
+        "month": 12,
+        "mean_temperature_c": 0.09,
+        "climatology_tmin_c": -18.3,
+        "daily": {
+          "month": 12,
+          "expected_days": 155,
+          "valid_days": 155,
+          "missing_days": 0,
+          "freezing_days": 137,
+          "years_with_freezing": [
+            2021,
+            2022,
+            2023,
+            2024,
+            2025
+          ],
+          "minimum_tmin_c": -12.38,
+          "coldest_date": "2021-12-19",
+          "longest_freezing_run_days": 29,
+          "coverage_pct": 100,
+          "status": "complete"
+        },
+        "frost_risk": "detected",
+        "evidence": [
+          "daily_reanalysis_below_zero",
+          "climatological_minimum_below_zero"
+        ],
+        "mortality_confirmed": false
+      }
+    ],
+    "frost_months": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      10,
+      11,
+      12
+    ],
+    "unknown_months": [],
+    "mortality_confirmed": false,
+    "forecast": false,
+    "policy": "Conservative screening for unprotected frost-sensitive crops across each full four-month season; not a calibrated yield-loss estimate.",
+    "limitations": "A positive monthly/seasonal average does not rule out freezing nights. No detected event is not a safety guarantee. Damage depends on crop, cultivar, growth stage and local conditions."
+  },
+  "terrain": {
+    "status": "dem",
+    "site_elevation_m": 1484,
+    "grid_elevation_m": 3184.08,
+    "elevation_difference_m": -1700.08,
+    "high_elevation": false,
+    "high_elevation_label_threshold_m": 2000,
+    "elevation": {
+      "value": 1484,
+      "unit": "m",
+      "status": "dem",
+      "source": "NASA/NGA SRTM v3 via Open Topo Data",
+      "product": "srtm90m",
+      "spatial_resolution": "3 arc-seconds (~90 m at equator)",
+      "period": "SRTM acquisition February 2000",
+      "vertical_reference": "SRTM elevation above sea level",
+      "limitations": "DEM pixel elevation, not a ground survey. No slope, snow cover or lapse-rate correction is inferred.",
+      "cache_used": false
+    },
+    "grid_elevation": {
+      "value": 3184.08,
+      "unit": "m",
+      "status": "model_grid",
+      "source": "NASA POWER response geometry",
+      "limitations": "Model grid elevation, not a surveyed field elevation."
+    },
+    "climate_representativeness": "limited_by_elevation_difference",
+    "limitations": "2000 m is a descriptive UI threshold, not a crop viability limit. Elevation alone does not prove freezing, steep slopes, snow or glaciers. POWER grid temperatures are not adjusted to the DEM height."
+  }
+}

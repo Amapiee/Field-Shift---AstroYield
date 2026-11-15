@@ -1,0 +1,860 @@
+{
+  "checked_at": "2026-11-14T19:00:09.912Z",
+  "kind": "Live sourced smoke check, not a runtime fallback",
+  "results": [
+    {
+      "name": "Thailand screenshot",
+      "lat": 13.7532,
+      "lon": 101.6945,
+      "location": "LAND",
+      "climate_status": "climatology",
+      "climate_error": null,
+      "period": {
+        "start": "2001-01",
+        "end": "2025-12",
+        "source": "NASA response message"
+      },
+      "qc": {
+        "T2M": {
+          "total": 12,
+          "valid_observed": 12,
+          "interpolated_or_filled": 0,
+          "suspect_outliers": 0,
+          "outlier_test": "global_MAD_and_cyclic_5_month_Hampel_3.5",
+          "missing": 0,
+          "has_missing_unfilled": false,
+          "data_integrity_score": 100
+        },
+        "TS": {
+          "total": 12,
+          "valid_observed": 12,
+          "interpolated_or_filled": 0,
+          "suspect_outliers": 0,
+          "outlier_test": "global_MAD_and_cyclic_5_month_Hampel_3.5",
+          "missing": 0,
+          "has_missing_unfilled": false,
+          "data_integrity_score": 100
+        },
+        "PRECTOTCORR": {
+          "total": 12,
+          "valid_observed": 12,
+          "interpolated_or_filled": 0,
+          "suspect_outliers": 0,
+          "outlier_test": "global_MAD_and_cyclic_5_month_Hampel_3.5",
+          "missing": 0,
+          "has_missing_unfilled": false,
+          "data_integrity_score": 100
+        },
+        "ALLSKY_SFC_SW_DWN": {
+          "total": 12,
+          "valid_observed": 12,
+          "interpolated_or_filled": 0,
+          "suspect_outliers": 0,
+          "outlier_test": "global_MAD_and_cyclic_5_month_Hampel_3.5",
+          "missing": 0,
+          "has_missing_unfilled": false,
+          "data_integrity_score": 100
+        },
+        "GWETTOP": {
+          "total": 12,
+          "valid_observed": 12,
+          "interpolated_or_filled": 0,
+          "suspect_outliers": 0,
+          "outlier_test": "global_MAD_and_cyclic_5_month_Hampel_3.5",
+          "missing": 0,
+          "has_missing_unfilled": false,
+          "data_integrity_score": 100
+        },
+        "GWETROOT": {
+          "total": 12,
+          "valid_observed": 12,
+          "interpolated_or_filled": 0,
+          "suspect_outliers": 0,
+          "outlier_test": "global_MAD_and_cyclic_5_month_Hampel_3.5",
+          "missing": 0,
+          "has_missing_unfilled": false,
+          "data_integrity_score": 100
+        }
+      },
+      "climatology_values": {
+        "T2M": [
+          24.36,
+          27.07,
+          28.85,
+          29.51,
+          28.28,
+          27.06,
+          26.37,
+          26.16,
+          26,
+          25.77,
+          24.58,
+          23.25
+        ],
+        "TS": [
+          24.49,
+          28.02,
+          30.2,
+          30.63,
+          28.81,
+          27.27,
+          26.48,
+          26.21,
+          26,
+          25.67,
+          24.36,
+          23.03
+        ],
+        "T2M_MIN": [
+          10.68,
+          11.64,
+          14.88,
+          17.58,
+          20.64,
+          21.28,
+          21.7,
+          21.09,
+          20.81,
+          16.12,
+          11.99,
+          9.59
+        ],
+        "PRECTOTCORR": [
+          12.4,
+          17.515,
+          54.56,
+          93,
+          171.11999999999998,
+          195.9,
+          219.17000000000002,
+          248.31,
+          310.5,
+          177.32,
+          28.5,
+          5.2700000000000005
+        ],
+        "ALLSKY_SFC_SW_DWN": [
+          17.73,
+          18.56,
+          19.1,
+          20.18,
+          18.34,
+          17.83,
+          17.06,
+          16.87,
+          16.53,
+          17,
+          17.55,
+          17.48
+        ],
+        "GWETTOP": [
+          0.56,
+          0.47,
+          0.45,
+          0.49,
+          0.59,
+          0.67,
+          0.73,
+          0.78,
+          0.85,
+          0.87,
+          0.79,
+          0.68
+        ],
+        "GWETROOT": [
+          0.57,
+          0.52,
+          0.5,
+          0.51,
+          0.56,
+          0.62,
+          0.67,
+          0.73,
+          0.82,
+          0.86,
+          0.77,
+          0.66
+        ]
+      },
+      "flagged_records": [],
+      "daily_status": "reanalysis",
+      "terrain": {
+        "status": "dem",
+        "site_elevation_m": 54,
+        "grid_elevation_m": 130.44,
+        "elevation_difference_m": -76.44,
+        "high_elevation": false,
+        "high_elevation_label_threshold_m": 2000,
+        "elevation": {
+          "value": 54,
+          "unit": "m",
+          "status": "dem",
+          "source": "NASA/NGA SRTM v3 via Open Topo Data",
+          "product": "srtm90m",
+          "spatial_resolution": "3 arc-seconds (~90 m at equator)",
+          "period": "SRTM acquisition February 2000",
+          "vertical_reference": "SRTM elevation above sea level",
+          "limitations": "DEM pixel elevation, not a ground survey. No slope, snow cover or lapse-rate correction is inferred.",
+          "cache_used": false
+        },
+        "grid_elevation": {
+          "value": 130.44,
+          "unit": "m",
+          "status": "model_grid",
+          "source": "NASA POWER response geometry",
+          "limitations": "Model grid elevation, not a surveyed field elevation."
+        },
+        "climate_representativeness": "unverified_at_field",
+        "limitations": "2000 m is a descriptive UI threshold, not a crop viability limit. Elevation alone does not prove freezing, steep slopes, snow or glaciers. POWER grid temperatures are not adjusted to the DEM height."
+      },
+      "frost_months": [],
+      "unknown_cold_months": [],
+      "monthly_minima": [
+        {
+          "month": 1,
+          "climatology_tmin_c": 10.68,
+          "daily_tmin_c": 11.45
+        },
+        {
+          "month": 2,
+          "climatology_tmin_c": 11.64,
+          "daily_tmin_c": 15.13
+        },
+        {
+          "month": 3,
+          "climatology_tmin_c": 14.88,
+          "daily_tmin_c": 18.3
+        },
+        {
+          "month": 4,
+          "climatology_tmin_c": 17.58,
+          "daily_tmin_c": 16.59
+        },
+        {
+          "month": 5,
+          "climatology_tmin_c": 20.64,
+          "daily_tmin_c": 19.16
+        },
+        {
+          "month": 6,
+          "climatology_tmin_c": 21.28,
+          "daily_tmin_c": 21.9
+        },
+        {
+          "month": 7,
+          "climatology_tmin_c": 21.7,
+          "daily_tmin_c": 22.68
+        },
+        {
+          "month": 8,
+          "climatology_tmin_c": 21.09,
+          "daily_tmin_c": 21.84
+        },
+        {
+          "month": 9,
+          "climatology_tmin_c": 20.81,
+          "daily_tmin_c": 21.75
+        },
+        {
+          "month": 10,
+          "climatology_tmin_c": 16.12,
+          "daily_tmin_c": 18.68
+        },
+        {
+          "month": 11,
+          "climatology_tmin_c": 11.99,
+          "daily_tmin_c": 12.42
+        },
+        {
+          "month": 12,
+          "climatology_tmin_c": 9.59,
+          "daily_tmin_c": 12.75
+        }
+      ]
+    },
+    {
+      "name": "Can Tho",
+      "lat": 10.04,
+      "lon": 105.78,
+      "location": "LAND",
+      "climate_status": "climatology",
+      "climate_error": null,
+      "period": {
+        "start": "2001-01",
+        "end": "2025-12",
+        "source": "NASA response message"
+      },
+      "qc": {
+        "T2M": {
+          "total": 12,
+          "valid_observed": 12,
+          "interpolated_or_filled": 0,
+          "suspect_outliers": 0,
+          "outlier_test": "global_MAD_and_cyclic_5_month_Hampel_3.5",
+          "missing": 0,
+          "has_missing_unfilled": false,
+          "data_integrity_score": 100
+        },
+        "TS": {
+          "total": 12,
+          "valid_observed": 12,
+          "interpolated_or_filled": 0,
+          "suspect_outliers": 0,
+          "outlier_test": "global_MAD_and_cyclic_5_month_Hampel_3.5",
+          "missing": 0,
+          "has_missing_unfilled": false,
+          "data_integrity_score": 100
+        },
+        "PRECTOTCORR": {
+          "total": 12,
+          "valid_observed": 12,
+          "interpolated_or_filled": 0,
+          "suspect_outliers": 0,
+          "outlier_test": "global_MAD_and_cyclic_5_month_Hampel_3.5",
+          "missing": 0,
+          "has_missing_unfilled": false,
+          "data_integrity_score": 100
+        },
+        "ALLSKY_SFC_SW_DWN": {
+          "total": 12,
+          "valid_observed": 12,
+          "interpolated_or_filled": 0,
+          "suspect_outliers": 0,
+          "outlier_test": "global_MAD_and_cyclic_5_month_Hampel_3.5",
+          "missing": 0,
+          "has_missing_unfilled": false,
+          "data_integrity_score": 100
+        },
+        "GWETTOP": {
+          "total": 12,
+          "valid_observed": 12,
+          "interpolated_or_filled": 0,
+          "suspect_outliers": 0,
+          "outlier_test": "global_MAD_and_cyclic_5_month_Hampel_3.5",
+          "missing": 0,
+          "has_missing_unfilled": false,
+          "data_integrity_score": 100
+        },
+        "GWETROOT": {
+          "total": 12,
+          "valid_observed": 12,
+          "interpolated_or_filled": 0,
+          "suspect_outliers": 0,
+          "outlier_test": "global_MAD_and_cyclic_5_month_Hampel_3.5",
+          "missing": 0,
+          "has_missing_unfilled": false,
+          "data_integrity_score": 100
+        }
+      },
+      "climatology_values": {
+        "T2M": [
+          26.04,
+          27.62,
+          29.45,
+          30.54,
+          29.27,
+          27.66,
+          27.02,
+          26.88,
+          26.77,
+          26.61,
+          26.32,
+          25.66
+        ],
+        "TS": [
+          26.74,
+          28.98,
+          31.29,
+          32.34,
+          30.04,
+          27.8,
+          27.03,
+          26.87,
+          26.8,
+          26.7,
+          26.46,
+          25.94
+        ],
+        "T2M_MIN": [
+          15.93,
+          17.83,
+          19.5,
+          22.64,
+          23.93,
+          23.37,
+          23.22,
+          22.71,
+          23.06,
+          21.02,
+          18.52,
+          16.21
+        ],
+        "PRECTOTCORR": [
+          19.22,
+          9.3225,
+          20.46,
+          44.1,
+          143.84,
+          220.2,
+          200.57,
+          194.06,
+          223.20000000000002,
+          206.46,
+          120,
+          39.99
+        ],
+        "ALLSKY_SFC_SW_DWN": [
+          17.84,
+          19.7,
+          20.65,
+          21.09,
+          19.3,
+          18.07,
+          17.39,
+          17.54,
+          17.34,
+          17.26,
+          17.33,
+          17.12
+        ],
+        "GWETTOP": [
+          0.58,
+          0.41,
+          0.33,
+          0.37,
+          0.57,
+          0.72,
+          0.79,
+          0.82,
+          0.85,
+          0.88,
+          0.84,
+          0.73
+        ],
+        "GWETROOT": [
+          0.62,
+          0.55,
+          0.52,
+          0.53,
+          0.59,
+          0.71,
+          0.79,
+          0.83,
+          0.85,
+          0.9,
+          0.86,
+          0.75
+        ]
+      },
+      "flagged_records": [
+        {
+          "variable": "T2M",
+          "month": 4,
+          "value": 30.54,
+          "flag": "seasonal_peak_retained"
+        },
+        {
+          "variable": "TS",
+          "month": 3,
+          "value": 31.29,
+          "flag": "seasonal_peak_retained"
+        },
+        {
+          "variable": "TS",
+          "month": 4,
+          "value": 32.34,
+          "flag": "seasonal_peak_retained"
+        },
+        {
+          "variable": "ALLSKY_SFC_SW_DWN",
+          "month": 3,
+          "value": 20.65,
+          "flag": "seasonal_peak_retained"
+        },
+        {
+          "variable": "ALLSKY_SFC_SW_DWN",
+          "month": 4,
+          "value": 21.09,
+          "flag": "seasonal_peak_retained"
+        }
+      ],
+      "daily_status": "reanalysis",
+      "terrain": {
+        "status": "dem",
+        "site_elevation_m": 3,
+        "grid_elevation_m": 1.91,
+        "elevation_difference_m": 1.09,
+        "high_elevation": false,
+        "high_elevation_label_threshold_m": 2000,
+        "elevation": {
+          "value": 3,
+          "unit": "m",
+          "status": "dem",
+          "source": "NASA/NGA SRTM v3 via Open Topo Data",
+          "product": "srtm90m",
+          "spatial_resolution": "3 arc-seconds (~90 m at equator)",
+          "period": "SRTM acquisition February 2000",
+          "vertical_reference": "SRTM elevation above sea level",
+          "limitations": "DEM pixel elevation, not a ground survey. No slope, snow cover or lapse-rate correction is inferred.",
+          "cache_used": false
+        },
+        "grid_elevation": {
+          "value": 1.91,
+          "unit": "m",
+          "status": "model_grid",
+          "source": "NASA POWER response geometry",
+          "limitations": "Model grid elevation, not a surveyed field elevation."
+        },
+        "climate_representativeness": "unverified_at_field",
+        "limitations": "2000 m is a descriptive UI threshold, not a crop viability limit. Elevation alone does not prove freezing, steep slopes, snow or glaciers. POWER grid temperatures are not adjusted to the DEM height."
+      },
+      "frost_months": [],
+      "unknown_cold_months": [],
+      "monthly_minima": [
+        {
+          "month": 1,
+          "climatology_tmin_c": 15.93,
+          "daily_tmin_c": 16.69
+        },
+        {
+          "month": 2,
+          "climatology_tmin_c": 17.83,
+          "daily_tmin_c": 19.12
+        },
+        {
+          "month": 3,
+          "climatology_tmin_c": 19.5,
+          "daily_tmin_c": 20.28
+        },
+        {
+          "month": 4,
+          "climatology_tmin_c": 22.64,
+          "daily_tmin_c": 23.31
+        },
+        {
+          "month": 5,
+          "climatology_tmin_c": 23.93,
+          "daily_tmin_c": 23.96
+        },
+        {
+          "month": 6,
+          "climatology_tmin_c": 23.37,
+          "daily_tmin_c": 23.36
+        },
+        {
+          "month": 7,
+          "climatology_tmin_c": 23.22,
+          "daily_tmin_c": 22.91
+        },
+        {
+          "month": 8,
+          "climatology_tmin_c": 22.71,
+          "daily_tmin_c": 22.9
+        },
+        {
+          "month": 9,
+          "climatology_tmin_c": 23.06,
+          "daily_tmin_c": 22.83
+        },
+        {
+          "month": 10,
+          "climatology_tmin_c": 21.02,
+          "daily_tmin_c": 21.67
+        },
+        {
+          "month": 11,
+          "climatology_tmin_c": 18.52,
+          "daily_tmin_c": 18.11
+        },
+        {
+          "month": 12,
+          "climatology_tmin_c": 16.21,
+          "daily_tmin_c": 17.74
+        }
+      ]
+    },
+    {
+      "name": "Alpine valley Zermatt",
+      "lat": 46.0207,
+      "lon": 7.7491,
+      "location": "LAND",
+      "climate_status": "climatology",
+      "climate_error": null,
+      "period": {
+        "start": "2001-01",
+        "end": "2025-12",
+        "source": "NASA response message"
+      },
+      "qc": {
+        "T2M": {
+          "total": 12,
+          "valid_observed": 12,
+          "interpolated_or_filled": 0,
+          "suspect_outliers": 0,
+          "outlier_test": "global_MAD_and_cyclic_5_month_Hampel_3.5",
+          "missing": 0,
+          "has_missing_unfilled": false,
+          "data_integrity_score": 100
+        },
+        "TS": {
+          "total": 12,
+          "valid_observed": 12,
+          "interpolated_or_filled": 0,
+          "suspect_outliers": 0,
+          "outlier_test": "global_MAD_and_cyclic_5_month_Hampel_3.5",
+          "missing": 0,
+          "has_missing_unfilled": false,
+          "data_integrity_score": 100
+        },
+        "PRECTOTCORR": {
+          "total": 12,
+          "valid_observed": 12,
+          "interpolated_or_filled": 0,
+          "suspect_outliers": 0,
+          "outlier_test": "global_MAD_and_cyclic_5_month_Hampel_3.5",
+          "missing": 0,
+          "has_missing_unfilled": false,
+          "data_integrity_score": 100
+        },
+        "ALLSKY_SFC_SW_DWN": {
+          "total": 12,
+          "valid_observed": 12,
+          "interpolated_or_filled": 0,
+          "suspect_outliers": 0,
+          "outlier_test": "global_MAD_and_cyclic_5_month_Hampel_3.5",
+          "missing": 0,
+          "has_missing_unfilled": false,
+          "data_integrity_score": 100
+        },
+        "GWETTOP": {
+          "total": 12,
+          "valid_observed": 12,
+          "interpolated_or_filled": 0,
+          "suspect_outliers": 0,
+          "outlier_test": "global_MAD_and_cyclic_5_month_Hampel_3.5",
+          "missing": 0,
+          "has_missing_unfilled": false,
+          "data_integrity_score": 100
+        },
+        "GWETROOT": {
+          "total": 12,
+          "valid_observed": 12,
+          "interpolated_or_filled": 0,
+          "suspect_outliers": 0,
+          "outlier_test": "global_MAD_and_cyclic_5_month_Hampel_3.5",
+          "missing": 0,
+          "has_missing_unfilled": false,
+          "data_integrity_score": 100
+        }
+      },
+      "climatology_values": {
+        "T2M": [
+          -10.04,
+          -9.75,
+          -6.27,
+          -1.14,
+          3.75,
+          8.31,
+          9.93,
+          9.55,
+          5.94,
+          1.94,
+          -4.01,
+          -8.81
+        ],
+        "TS": [
+          -16.01,
+          -15.01,
+          -9.49,
+          -2.07,
+          3.77,
+          7.97,
+          9.21,
+          8.51,
+          5,
+          0.38,
+          -7,
+          -14.53
+        ],
+        "T2M_MIN": [
+          -26.27,
+          -28.61,
+          -27.31,
+          -18.99,
+          -11.29,
+          -6.99,
+          -3.4,
+          -3.79,
+          -9.98,
+          -14.6,
+          -23.47,
+          -27.93
+        ],
+        "PRECTOTCORR": [
+          62.62,
+          50.285000000000004,
+          63.24,
+          69.9,
+          108.80999999999999,
+          97.2,
+          95.78999999999999,
+          99.2,
+          68.39999999999999,
+          72.23,
+          91.2,
+          67.89
+        ],
+        "ALLSKY_SFC_SW_DWN": [
+          4.97,
+          7.97,
+          12.07,
+          16,
+          18.42,
+          21.78,
+          21.69,
+          18.66,
+          14.51,
+          9.36,
+          5.33,
+          3.95
+        ],
+        "GWETTOP": [
+          0.76,
+          0.76,
+          0.79,
+          0.84,
+          0.82,
+          0.79,
+          0.75,
+          0.74,
+          0.73,
+          0.74,
+          0.76,
+          0.76
+        ],
+        "GWETROOT": [
+          0.73,
+          0.72,
+          0.75,
+          0.82,
+          0.8,
+          0.76,
+          0.71,
+          0.69,
+          0.68,
+          0.7,
+          0.72,
+          0.73
+        ]
+      },
+      "flagged_records": [],
+      "daily_status": "reanalysis",
+      "terrain": {
+        "status": "dem",
+        "site_elevation_m": 1609,
+        "grid_elevation_m": 2250.64,
+        "elevation_difference_m": -641.6399999999999,
+        "high_elevation": false,
+        "high_elevation_label_threshold_m": 2000,
+        "elevation": {
+          "value": 1609,
+          "unit": "m",
+          "status": "dem",
+          "source": "NASA/NGA SRTM v3 via Open Topo Data",
+          "product": "srtm90m",
+          "spatial_resolution": "3 arc-seconds (~90 m at equator)",
+          "period": "SRTM acquisition February 2000",
+          "vertical_reference": "SRTM elevation above sea level",
+          "limitations": "DEM pixel elevation, not a ground survey. No slope, snow cover or lapse-rate correction is inferred.",
+          "cache_used": false
+        },
+        "grid_elevation": {
+          "value": 2250.64,
+          "unit": "m",
+          "status": "model_grid",
+          "source": "NASA POWER response geometry",
+          "limitations": "Model grid elevation, not a surveyed field elevation."
+        },
+        "climate_representativeness": "limited_by_elevation_difference",
+        "limitations": "2000 m is a descriptive UI threshold, not a crop viability limit. Elevation alone does not prove freezing, steep slopes, snow or glaciers. POWER grid temperatures are not adjusted to the DEM height."
+      },
+      "frost_months": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "unknown_cold_months": [],
+      "monthly_minima": [
+        {
+          "month": 1,
+          "climatology_tmin_c": -26.27,
+          "daily_tmin_c": -22.54
+        },
+        {
+          "month": 2,
+          "climatology_tmin_c": -28.61,
+          "daily_tmin_c": -22.47
+        },
+        {
+          "month": 3,
+          "climatology_tmin_c": -27.31,
+          "daily_tmin_c": -17.32
+        },
+        {
+          "month": 4,
+          "climatology_tmin_c": -18.99,
+          "daily_tmin_c": -15.1
+        },
+        {
+          "month": 5,
+          "climatology_tmin_c": -11.29,
+          "daily_tmin_c": -7.54
+        },
+        {
+          "month": 6,
+          "climatology_tmin_c": -6.99,
+          "daily_tmin_c": -3.13
+        },
+        {
+          "month": 7,
+          "climatology_tmin_c": -3.4,
+          "daily_tmin_c": -2.78
+        },
+        {
+          "month": 8,
+          "climatology_tmin_c": -3.79,
+          "daily_tmin_c": -1.44
+        },
+        {
+          "month": 9,
+          "climatology_tmin_c": -9.98,
+          "daily_tmin_c": -5.38
+        },
+        {
+          "month": 10,
+          "climatology_tmin_c": -14.6,
+          "daily_tmin_c": -9.72
+        },
+        {
+          "month": 11,
+          "climatology_tmin_c": -23.47,
+          "daily_tmin_c": -19.09
+        },
+        {
+          "month": 12,
+          "climatology_tmin_c": -27.93,
+          "daily_tmin_c": -22.86
+        }
+      ]
+    }
+  ]
+}

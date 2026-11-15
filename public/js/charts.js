@@ -24,16 +24,23 @@ function destroyChart(ref) {
 
 // ─── Build / Update Charts ────────────────────────────────────────────────────
 function buildCharts(monthly) {
+  const values = key => Array.from({length:12}, (_, index) => Number.isFinite(monthly?.[key]?.[index]) ? monthly[key][index] : null);
   chartTemp = destroyChart(chartTemp);
   chartTemp = new Chart(document.getElementById("chart-temp"), {
     type: "line",
     data: {
       labels: MONTHS,
       datasets: [
-        { label: "T2M (°C)", data: monthly.T2M, borderColor: "#f59e0b", borderWidth: 2,
+        { label: "T2M trung bình (°C)", data: values("T2M"), borderColor: "#f59e0b", borderWidth: 2, spanGaps: false,
           backgroundColor: "rgba(245,158,11,0.08)", fill: true, tension: 0.4, pointRadius: 3 },
-        { label: "TS (°C)",  data: monthly.TS,  borderColor: "#ef4444", borderWidth: 1.5,
-          borderDash: [4,3], tension: 0.4, pointRadius: 2, backgroundColor: "transparent" }
+        { label: "TS bề mặt (°C)", data: values("TS"), borderColor: "#ef4444", borderWidth: 1.5, spanGaps: false,
+          borderDash: [4,3], tension: 0.4, pointRadius: 2, backgroundColor: "transparent" },
+        { label: "Tmin khí hậu (°C)", data: values("T2M_MIN"), borderColor: "#38bdf8", borderWidth: 1.5,
+          tension: 0, pointRadius: 2, spanGaps: false },
+        { label: "Tmin thấp nhất trong lịch sử (°C)", data: values("T2M_MIN_HISTORY"), borderColor: "#c084fc", borderWidth: 2,
+          tension: 0, pointRadius: 3, spanGaps: false },
+        { label: "Mốc 0°C", data: Array(12).fill(0), borderColor: "#94a3b8", borderWidth: 1,
+          borderDash: [3,3], pointRadius: 0, fill: false }
       ]
     },
     options: { ...CHART_DEFAULTS }
@@ -86,21 +93,18 @@ function buildCharts(monthly) {
 function buildRadar(scenarios) {
   chartRadar = destroyChart(chartRadar);
   const cats = ["Soil HP","Water HP","Profit HP","Overall"];
-  const extract = sc => [sc.soil_hp, sc.water_hp, sc.profit_hp, sc.overall];
+  const extract = sc => [sc.soil_hp, sc.water_hp, sc.profit_hp, sc.overall].map(value => Number.isFinite(value) ? value : null);
+  const dataset = (key, label, color, backgroundColor) => scenarios[key] ? [{label,
+    data:extract(scenarios[key]),borderColor:color,backgroundColor,borderWidth:2,pointBackgroundColor:color}] : [];
   chartRadar = new Chart(document.getElementById("chart-radar"), {
     type: "radar",
     data: {
       labels: cats,
       datasets: [
-        { label: "Your Strategy", data: extract(scenarios.user),
-          borderColor: "#38bdf8", backgroundColor: "rgba(56,189,248,0.1)",
-          borderWidth: 2, pointBackgroundColor: "#38bdf8" },
-        { label: "Quantum AI", data: extract(scenarios.quantum),
-          borderColor: "#a78bfa", backgroundColor: "rgba(167,139,250,0.1)",
-          borderWidth: 2, pointBackgroundColor: "#a78bfa" },
-        { label: "Baseline", data: extract(scenarios.baseline),
-          borderColor: "#ef4444", backgroundColor: "rgba(239,68,68,0.06)",
-          borderWidth: 1.5, borderDash: [4,3], pointBackgroundColor: "#ef4444" }
+        ...dataset("user", "Your Strategy", "#38bdf8", "rgba(56,189,248,0.1)"),
+        ...dataset("quantum", scenarios.quantum?.fallback_used ? "Classical fallback" : "Quantum AI", "#a78bfa", "rgba(167,139,250,0.1)"),
+        ...dataset("baseline", "Baseline", "#ef4444", "rgba(239,68,68,0.06)"),
+        ...dataset("classical", "Classical Exact", "#10b981", "rgba(16,185,129,0.06)")
       ]
     },
     options: {

@@ -1,36 +1,104 @@
 const test = require("node:test");
-const assert = require("node:assert");
-const { mockNasa, computeDerived, buildSatelliteSummary } = require("../src/services/nasa");
-const { scoreScenario } = require("../src/services/scoring");
-const { generateAlerts } = require("../src/services/alerts");
+const assert = require("node:assert/strict");
+const fixture = require("./fixtures/climates.json")[0];
 const { NASA_KEYS } = require("../src/config/crops");
+const optimizer = require("../src/algorithms/13_crop_rotation_optimization_qaoa_milp");
+const {
+  mockNasa,
+  computeDerived,
+  buildSatelliteSummary,
+} = require("../src/services/nasa");
+const { scoreScenario } = require("../src/services/scoring");
 
-const data = () => computeDerived(mockNasa(10.04, 105.78));
+test("demo climate is repeatable, labeled, and retains legacy derived indices", () => {
+  const first = mockNasa(10.04, 105.78);
+  const second = mockNasa(10.04, 105.78);
+  for (const key of NASA_KEYS) {
+    assert.equal(first[key].length, 12);
+    assert.deepEqual(first[key], second[key]);
+  }
+  assert.equal(first.source_status, "demo");
+  assert.equal(first.recommendation_allowed, false);
 
-test("mockNasa trả đủ 12 tháng cho mọi biến", () => {
-  const d = mockNasa(10.04, 105.78);
-  for (const k of NASA_KEYS) assert.strictEqual(d[k].length, 12, k);
-});
-
-test("computeDerived thêm NDVI/ESI/EROSION trong khoảng hợp lệ", () => {
-  const d = data();
-  for (const k of ["NDVI", "ESI", "EROSION"]) {
-    assert.strictEqual(d[k].length, 12);
-    assert.ok(d[k].every((v) => v >= 0 && v <= 1), k);
+  const data = computeDerived(first);
+  for (const key of ["ET0", "NDVI", "ESI", "EROSION", "DRI", "FRI"]) {
+    assert.equal(data[key].length, 12);
+    assert.ok(data[key].every(Number.isFinite), key);
   }
 });
 
-test("buildSatelliteSummary có đủ 5 vệ tinh", () => {
-  const s = buildSatelliteSummary(data());
-  for (const k of ["POWER", "SMAP", "GPM", "ECOSTRESS", "MODIS"]) assert.ok(s[k], k);
+test("satellite summary preserves risk groups and labels climate-derived proxies", () => {
+  const summary = buildSatelliteSummary(computeDerived(mockNasa(10.04, 105.78)));
+  for (const group of ["POWER", "SMAP", "GPM", "ECOSTRESS", "MODIS", "RISK"]) {
+    assert.ok(summary[group], group);
+  }
+  assert.match(summary.SMAP.source, /not SMAP observations/);
+  assert.match(summary.GPM.source, /not GPM IMERG observations/);
+  assert.match(summary.MODIS.source, /proxy/);
 });
 
-test("scoreScenario: điểm 0-100 và rank hợp lệ", () => {
-  const r = scoreScenario(["Rice", "Soybean", "Maize"], data(), 0.33, 0.33, 0.34);
-  for (const k of ["soil_hp", "water_hp", "profit_hp", "overall"]) assert.ok(r[k] >= 0 && r[k] <= 100, k);
-  assert.ok(["S", "A", "B", "C"].includes(r.rank));
+test("default scenario score exactly matches the optimizer objective", () => {
+  const data = computeDerived({ ...fixture });
+  const exact = optimizer.solveClassicalExactOptimizer(
+    optimizer.buildSeasonEnvironments(data)
+  );
+  const result = scoreScenario(exact.best_rotation, data, 0.33, 0.33, 0.34);
+  assert.equal(result.objective_version, exact.objective_version);
+  assert.equal(result.overall, exact.best_score);
+  assert.equal(result.objective_score, exact.best_score);
+  assert.equal(result.score_kind, "heuristic_planning_score");
 });
 
-test("generateAlerts luôn có ít nhất 1 cảnh báo", () => {
-  assert.ok(generateAlerts(data()).length >= 1);
+test("external suitability overlays keep a separately labeled legacy score", () => {
+  const data = computeDerived({ ...fixture });
+  const result = scoreScenario(
+    ["Rice", "Soybean", "Maize"],
+    data,
+    0.33,
+    0.33,
+    0.34,
+    { Rice: 0.8 }
+  );
+  assert.equal(result.score_kind, "legacy_external_overlay");
+  assert.equal(result.crops.length, 3);
+  assert.ok(result.overall >= 0 && result.overall <= 100);
+});
+
+test("extreme desert conditions exclude unsuitable crop plans from the modern objective", () => {
+  const data = computeDerived({
+    ...fixture,
+    PRECTOTCORR: Array(12).fill(5),
+    GWETROOT: Array(12).fill(0.1),
+    T2M: [-5, 0, 8, 16, 22, 28, 30, 28, 22, 14, 3, -4],
+    TS: [-3, 2, 10, 19, 25, 32, 34, 32, 25, 16, 5, -2],
+  });
+  const result = scoreScenario(
+    ["Soybean", "Soybean", "Soybean"],
+    data,
+    0.33,
+    0.33,
+    0.34
+  );
+  assert.equal(result.rank, "C");
+  assert.equal(result.water_hp, 0);
+  assert.equal(result.profit_hp, 0);
+});
+
+test("scenario validation rejects unknown crops and invalid external scores", () => {
+  const data = computeDerived({ ...fixture });
+  assert.throws(
+    () => scoreScenario(["Rice", "bad", "Rice"], data, 0.33, 0.33, 0.34),
+    /known crops/
+  );
+  assert.throws(
+    () => scoreScenario(
+      ["Rice", "Rice", "Rice"],
+      data,
+      0.33,
+      0.33,
+      0.34,
+      { Rice: 1.5 }
+    ),
+    /between 0 and 1/
+  );
 });

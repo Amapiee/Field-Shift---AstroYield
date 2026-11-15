@@ -39,26 +39,33 @@
     <div class="settings-body">
       <div id="tab-weights" class="stab-pane active">
         <div class="section-label" data-i18n="weights_label">⚖️ Farming Priority Weights</div>
+
+        <!-- Trọng số đặt trong settings để đồng bộ với UI -->
         <div class="slider-group">
           <div class="slider-row">
             <span class="slider-name" data-i18n="w_soil">🌱 Soil Conservation</span>
             <span class="slider-val" id="val-soil">0.33</span>
           </div>
-          <input type="range" id="sl-soil" min="0" max="1" step="0.01" value="0.33" oninput="document.getElementById('val-soil').textContent=parseFloat(this.value).toFixed(2)"/>
+          <input type="range" id="sl-soil" min="0" max="1" step="0.01" value="0.33"
+                 oninput="document.getElementById('val-soil').textContent=parseFloat(this.value).toFixed(2)"/>
         </div>
+
         <div class="slider-group">
           <div class="slider-row">
             <span class="slider-name" data-i18n="w_water">💧 Water Saving</span>
             <span class="slider-val" id="val-water">0.33</span>
           </div>
-          <input type="range" id="sl-water" min="0" max="1" step="0.01" value="0.33" oninput="document.getElementById('val-water').textContent=parseFloat(this.value).toFixed(2)"/>
+          <input type="range" id="sl-water" min="0" max="1" step="0.01" value="0.33"
+                 oninput="document.getElementById('val-water').textContent=parseFloat(this.value).toFixed(2)"/>
         </div>
+
         <div class="slider-group">
           <div class="slider-row">
             <span class="slider-name" data-i18n="w_profit">💰 Profit Maximization</span>
             <span class="slider-val" id="val-profit">0.34</span>
           </div>
-          <input type="range" id="sl-profit" min="0" max="1" step="0.01" value="0.34" oninput="document.getElementById('val-profit').textContent=parseFloat(this.value).toFixed(2)"/>
+          <input type="range" id="sl-profit" min="0" max="1" step="0.01" value="0.34"
+                 oninput="document.getElementById('val-profit').textContent=parseFloat(this.value).toFixed(2)"/>
         </div>
       </div>
 
@@ -70,6 +77,7 @@
             <option value="vi">🇻🇳 Tiếng Việt (Vietnamese)</option>
           </select>
         </div>
+
         <div>
           <div class="select-label" data-i18n="theme_color_label" style="margin-bottom:6px">🎨 Accent Color</div>
           <div class="theme-grid">
@@ -80,6 +88,7 @@
             <button class="theme-swatch" data-hex="#f43f5e" style="background:#f43f5e" onclick="AppSettings.setTheme('#f43f5e', '244, 63, 94')" title="Mars Terra">🔥</button>
           </div>
         </div>
+
         <div>
           <div class="select-label" data-i18n="ui_style_label" style="margin-bottom:6px">✨ Visual Style</div>
           <div class="ui-preset-grid">
@@ -87,6 +96,7 @@
             <button class="preset-btn" id="btn-style-hud" onclick="AppSettings.setUIStyle('hud')" data-i18n="style_hud">🛡️ Sci-Fi HUD</button>
           </div>
         </div>
+
         <div>
           <div class="select-label" data-i18n="layout_label" style="margin-bottom:6px">🖥️ Layout &amp; Side Panels</div>
           <div class="ui-preset-grid">
@@ -96,7 +106,9 @@
             <button class="preset-btn" id="btn-density-compact" onclick="AppSettings.setCompact(true)" data-i18n="density_compact">🔍 Compact Mode</button>
           </div>
         </div>
-        <button class="btn-random" onclick="AppSettings.resetAll()" data-i18n="btn_reset" style="margin-top:4px; color:#fca5a5; border-color:rgba(239,68,68,0.4); background:rgba(239,68,68,0.12);">
+
+        <button class="btn-random" onclick="AppSettings.resetAll()" data-i18n="btn_reset"
+                style="margin-top:4px; color:#fca5a5; border-color:rgba(239,68,68,0.4); background:rgba(239,68,68,0.12);">
           🔄 Reset to Default UI
         </button>
       </div>
@@ -107,8 +119,11 @@
 <!-- ═══════════ TRADE MODAL ═══════════ -->
 <div id="modal-trade" class="modal-trade">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
-    <h3 style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1rem; color: var(--teal); font-weight: 800;" data-i18n="modal_trade_title">COMMERCIAL ROUTES &amp; CROP PRICING</h3>
-    <button onclick="document.getElementById('modal-trade').classList.remove('show')" style="background:none; border:none; color:var(--dim); font-size:1.2rem; cursor:pointer;">✕</button>
+    <h3 style="font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1rem; color: var(--teal); font-weight: 800;"
+        data-i18n="modal_trade_title">COMMERCIAL ROUTES &amp; CROP PRICING</h3>
+    <button onclick="document.getElementById('modal-trade').classList.remove('show')"
+            style="background:none; border:none; color:var(--dim); font-size:1.2rem; cursor:pointer;"
+            aria-label="Close trade modal">✕</button>
   </div>
   <div id="trade-routes-content"></div>
 </div>
@@ -136,13 +151,12 @@
     </div>
   </div>
   <div class="header-badges">
-    <span class="hbadge hbadge-nasa" data-tip-key="badge_power" tabindex="0" role="button" aria-label="Thông tin">NASA POWER</span> 
-    <span class="hbadge hbadge-nasa" data-tip-key="badge_smap" tabindex="0" role="button" aria-label="Thông tin">SMAP</span>
-    <span class="hbadge hbadge-nasa" data-tip-key="badge_gpm" tabindex="0" role="button" aria-label="Thông tin">GPM</span>
-    <span class="hbadge hbadge-nasa" data-tip-key="badge_ecostress" tabindex="0" role="button" aria-label="Thông tin">ECOSTRESS</span>
-    <span class="hbadge hbadge-nasa" data-tip-key="badge_modis" tabindex="0" role="button" aria-label="Thông tin">MODIS</span>
-    <span class="hbadge hbadge-q" data-tip-key="badge_qaoa" tabindex="0" role="button" aria-label="Thông tin">Qiskit QAOA</span>
-    <span class="hbadge hbadge-src" id="data-source-badge" data-tip-key="badge_source" tabindex="0" role="button" aria-label="Thông tin">Source: —</span>
+    <span class="hbadge hbadge-nasa" data-tip-key="badge_power" tabindex="0" role="button" aria-label="NASA POWER">NASA POWER</span>
+    <span class="hbadge hbadge-nasa" data-tip-key="badge_smap" tabindex="0" role="button" aria-label="NASA SMAP">SMAP</span>
+    <span class="hbadge hbadge-nasa" data-tip-key="badge_gpm" tabindex="0" role="button" aria-label="NASA GPM">GPM</span>
+    <span class="hbadge hbadge-nasa" data-tip-key="badge_ecostress" tabindex="0" role="button" aria-label="ECOSTRESS">ECOSTRESS</span>
+    <span class="hbadge hbadge-nasa" data-tip-key="badge_modis" tabindex="0" role="button" aria-label="MODIS">MODIS</span>
+    <span class="hbadge hbadge-q" data-tip-key="badge_qaoa" tabindex="0" role="button" aria-label="Qiskit QAOA">Qiskit QAOA</span>
     <button class="btn-settings-gear" onclick="toggleHoverMode()" id="btn-autohide-mode" title="Toggle Auto-Hide Panels on Hover">📌</button>
     <button class="btn-settings-gear" onclick="toggleSettingsModal()" title="System Settings &amp; Preferences">⚙️</button>
   </div>
@@ -161,6 +175,7 @@
   </div>
 
   <div class="panel-scroll-container" id="left-panel-scroll">
+
     <!-- SECTION 01: CROP ROTATION PLAN -->
     <div class="acc-card open">
       <button class="acc-btn" onclick="toggleAcc(this)">
@@ -181,6 +196,7 @@
                 <option value="Fallow">🏜️ Fallow Land</option>
               </select>
             </div>
+
             <div class="select-group">
               <div class="select-label"><span data-i18n="season_2">Summer-Autumn</span> (May–Aug)</div>
               <select id="crop-s2">
@@ -192,6 +208,7 @@
                 <option value="Fallow">🏜️ Fallow Land</option>
               </select>
             </div>
+
             <div class="select-group">
               <div class="select-label"><span data-i18n="season_3">Winter Season</span> (Sep–Dec)</div>
               <select id="crop-s3">
@@ -203,6 +220,7 @@
                 <option value="Fallow">🏜️ Fallow Land</option>
               </select>
             </div>
+            <div id="analysis-message" role="status" aria-live="polite" hidden></div>
           </div>
         </div>
       </div>
@@ -218,16 +236,18 @@
         <div class="acc-content">
           <div class="acc-inner">
             <div class="search-wrap">
-              <input class="search-input" id="search-input" type="text" placeholder="Hanoi, Mekong Delta, California…" autocomplete="off" spellcheck="false"/>
-              <button class="btn-search" id="btn-search" onclick="smartGeocode()" data-i18n="btn_search">Find</button>
+              <input class="search-input" id="search-input" type="text"
+                     placeholder="Hanoi, Mekong Delta, California…"
+                     autocomplete="off" spellcheck="false"/>
+              <button class="btn-search" id="btn-search" onclick="smartGeocode()" data-i18n="btn_search">🔍 Find</button>
             </div>
             <div class="search-result" id="search-result"></div>
             <div class="search-error" id="search-error"></div>
 
             <div class="layer-toggle-wrap">
-              <button class="layer-btn active" id="btn-layer-esri" onclick="switchMapLayer('esri')">Esri</button>
-              <button class="layer-btn" id="btn-layer-google" onclick="switchMapLayer('google')">Google</button>
-              <button class="layer-btn" id="btn-layer-pure" onclick="switchMapLayer('pure')" data-i18n="layer_clean">Clean</button>
+              <button class="layer-btn active" id="btn-layer-esri" onclick="switchMapLayer('esri')">🛰️ Esri</button>
+              <button class="layer-btn" id="btn-layer-google" onclick="switchMapLayer('google')">🗺️ Google</button>
+              <button class="layer-btn" id="btn-layer-pure" onclick="switchMapLayer('pure')" data-i18n="layer_clean">🌍 Clean</button>
             </div>
           </div>
         </div>
@@ -245,15 +265,15 @@
           <div class="acc-inner">
             <div class="coord-box">
               <div class="coord-field">
-                <label>LATITUDE</label>
+                <label for="inp-lat">LATITUDE</label>
                 <input type="number" id="inp-lat" value="10.0400" step="0.0001" min="-90" max="90"/>
               </div>
               <div class="coord-field">
-                <label>LONGITUDE</label>
+                <label for="inp-lon">LONGITUDE</label>
                 <input type="number" id="inp-lon" value="105.7800" step="0.0001" min="-180" max="180"/>
               </div>
             </div>
-            <button class="btn-random" onclick="randomCoords()" data-i18n="btn_random">Try Random Farm Location</button>
+            <button class="btn-random" onclick="randomCoords()" data-i18n="btn_random">🎲 Try Random Farm Location</button>
           </div>
         </div>
       </div>
@@ -273,6 +293,7 @@
               <span class="heat-switch-track"><span class="heat-switch-thumb"></span></span>
               <span class="heat-switch-text" data-i18n="heat_enable">Show Global Heatmap</span>
             </label>
+
             <div class="heat-status" id="heat-status" style="display:none"></div>
 
             <div id="heat-controls" class="heat-controls">
@@ -280,6 +301,7 @@
                 <div class="select-label"><span data-i18n="heat_metric">Metric</span></div>
                 <select id="heat-layer"></select>
               </div>
+
               <div class="slider-group">
                 <div class="slider-row">
                   <span class="slider-name" data-i18n="heat_time">Timeframe</span>
@@ -287,21 +309,26 @@
                 </div>
                 <input type="range" id="heat-month" min="0" max="12" step="1" value="0"/>
               </div>
+
               <div class="slider-group">
                 <div class="slider-row">
                   <span class="slider-name" data-i18n="heat_opacity">Opacity</span>
                 </div>
                 <input type="range" id="heat-opacity" min="20" max="95" step="1" value="60"/>
               </div>
+
               <label class="heat-check">
-                <input type="checkbox" id="heat-invert"/> <span data-i18n="heat_invert">Invert colors (high = green, low = red)</span>
+                <input type="checkbox" id="heat-invert"/>
+                <span data-i18n="heat_invert">Invert colors (high = green, low = red)</span>
               </label>
+
               <div class="heat-legend">
                 <div class="heat-legend-bar" id="heat-legend-bar"></div>
                 <div class="heat-legend-labels">
                   <span id="heat-legend-min">—</span><span>low → high</span><span id="heat-legend-max">—</span>
                 </div>
               </div>
+
               <div class="heat-hover" id="heat-hover"></div>
             </div>
           </div>
@@ -375,6 +402,7 @@
               </div>
 
               <label class="heat-check"><input type="checkbox" id="trade-hubs" checked/> <span data-i18n="trade_hubs_lbl">Show Major Ports &amp; Air Hubs</span></label>
+              <label class="heat-check"><input type="checkbox" id="trade-animation"/> Hiệu ứng chuyển động (nặng hơn)</label>
               <label class="heat-check"><input type="checkbox" id="trade-markets"/> <span data-i18n="trade_osm_lbl">Show Markets &amp; Hubs (OSM)</span></label>
               <div class="heat-status" id="trade-market-status" style="display:none"></div>
 
@@ -400,11 +428,12 @@
         </div>
       </div>
     </div>
+
   </div>
 
   <!-- STICKY FOOTER BUTTONS -->
   <div class="panel-foot">
-    <button class="btn-analyze" id="btn-run" onclick="runAnalysis()" data-i18n="btn_run_quantum">
+    <button class="btn-analyze" id="btn-run-footer" onclick="runAnalysis()" data-i18n="btn_run_quantum">
       RUN QUANTUM ANALYSIS
     </button>
     <button class="btn-trade" id="btn-trade-route" onclick="runTradeAnalysis()" data-i18n="btn_run_trade">
@@ -421,65 +450,139 @@
   </button>
 
   <div class="tab-bar">
-    <!-- ĐẶT NÚT DẤU TRỪ Ở NGOÀI CÙNG BÊN TRÁI -->
     <button class="btn-panel-mini" onclick="togglePanel('right-panel')" title="Minimize Panel">─</button>
     <button class="tab-btn active" onclick="switchTab('telemetry',this)" data-i18n="tab_telemetry">SATELLITE INTEL</button>
     <button class="tab-btn" onclick="switchTab('arena',this)" data-i18n="tab_arena">QUANTUM RESULT</button>
   </div>
 
+  <details id="crop-recommendations" open aria-label="Crop suitability ranking">
+    <summary class="mini-chart-title">CHỈ SỐ PHÙ HỢP VỚI VÙNG ĐẤT</summary>
+    <div class="crop-ranking-hint">Chỉ số tương thích tương đối</div>
+    <label><input type="checkbox" id="crop-ranking-hover" checked/> Xem khi rê chuột</label>
+    <div id="crop-ranking-status" role="status">Chọn điểm đất hoặc trỏ trên bản đồ để xem gợi ý.</div>
+    <table class="crop-ranking-table"><thead><tr><th>#</th><th>Cây / Mức phù hợp</th><th>Điểm</th><th>Tháng gợi ý</th></tr></thead><tbody id="crop-ranking-body"></tbody></table>
+    <div id="crop-ranking-note"></div>
+  </details>
   <div class="tab-content active" id="tab-telemetry">
+    <details id="data-details" class="mini-chart-wrap">
+      <summary>📡 Nguồn dữ liệu &amp; chi tiết phân tích</summary>
+      <div id="data-source-badge" data-tip-key="badge_source" tabindex="0">Source: —</div>
+      <div id="source-reason"></div>
+      <div id="solver-details"></div>
+      <div id="spi-summary"></div>
+      <div id="mcda-ranking"></div>
+    </details>
     <div class="sat-row">
       <div class="sat-icon">☀️</div>
-      <div class="sat-info"><div class="sat-name">NASA POWER<span class="info-q" data-tip-key="power_temp" tabindex="0" role="button" aria-label="Thông tin">?</span></div><div class="sat-desc">T2M · Radiation · LST</div></div>
-      <div class="sat-values"><div class="sat-val-main" id="sv-temp">—</div><div class="sat-val-sub" id="sv-temp-rng">Avg Temperature</div></div>
-    </div>
-    <div class="sat-row">
-      <div class="sat-icon">💧</div>
-      <div class="sat-info"><div class="sat-name">NASA SMAP · Crop-CASMA<span class="info-q" data-tip-key="smap_moisture" tabindex="0" role="button" aria-label="Thông tin">?</span></div><div class="sat-desc">GWETTOP · GWETROOT</div></div>
-      <div class="sat-values"><div class="sat-val-main" id="sv-gwet">—</div><div class="sat-val-sub" id="sv-gwet-sub">Root Zone Moisture</div></div>
-    </div>
-    <div class="sat-row">
-      <div class="sat-icon">🌧️</div>
-      <div class="sat-info"><div class="sat-name">NASA GPM IMERG<span class="info-q" data-tip-key="gpm_rain" tabindex="0" role="button" aria-label="Thông tin">?</span></div><div class="sat-desc">PRECTOTCORR · Erosion Risk</div></div>
-      <div class="sat-values"><div class="sat-val-main" id="sv-rain">—</div><div class="sat-val-sub" id="sv-rain-sub">Avg Rainfall/Month</div></div>
-    </div>
-    <div class="sat-row">
-      <div class="sat-icon">🌡️</div>
-      <div class="sat-info"><div class="sat-name">ECOSTRESS / MODIS LST<span class="info-q" data-tip-key="ecostress_heat" tabindex="0" role="button" aria-label="Thông tin">?</span></div><div class="sat-desc">TS · ESI · Heat Stress</div></div>
-      <div class="sat-values"><div class="sat-val-main" id="sv-ts">—</div><div class="sat-val-sub" id="sv-esi">ESI —</div></div>
-    </div>
-    <div class="sat-row">
-      <div class="sat-icon">🌿</div>
-      <div class="sat-info"><div class="sat-name">MODIS NDVI + SoilGrids<span class="info-q" data-tip-key="modis_ndvi" tabindex="0" role="button" aria-label="Thông tin">?</span></div><div class="sat-desc">Vegetation Health · Fertility</div></div>
-      <div class="sat-values"><div class="sat-val-main" id="sv-ndvi">—</div><div class="sat-val-sub" id="sv-ndvi-sub">NDVI Avg</div></div>
+      <div class="sat-info">
+        <div class="sat-name">NASA POWER<span class="info-q" data-tip-key="power_temp" tabindex="0" role="button" aria-label="Thông tin">?</span></div>
+        <div class="sat-desc">T2M · Radiation · LST</div>
+      </div>
+      <div class="sat-values">
+        <div class="sat-val-main" id="sv-temp">—</div>
+        <div class="sat-val-sub" id="sv-temp-rng">Avg Temperature</div>
+      </div>
     </div>
 
-    <div class="mini-chart-wrap"><div class="mini-chart-title">TEMPERATURE PROFILE (12M)</div><canvas id="chart-temp" height="90"></canvas></div>
-    <div class="mini-chart-wrap"><div class="mini-chart-title">RAINFALL &amp; SOIL MOISTURE</div><canvas id="chart-rain" height="90"></canvas></div>
-    <div class="mini-chart-wrap"><div class="mini-chart-title">NDVI VEGETATION INDEX</div><canvas id="chart-ndvi" height="70"></canvas></div>
+    <div class="sat-row">
+      <div class="sat-icon">💧</div>
+      <div class="sat-info">
+        <div class="sat-name">NASA SMAP · Crop-CASMA<span class="info-q" data-tip-key="smap_moisture" tabindex="0" role="button" aria-label="Thông tin">?</span></div>
+        <div class="sat-desc">GWETTOP · GWETROOT</div>
+      </div>
+      <div class="sat-values">
+        <div class="sat-val-main" id="sv-gwet">—</div>
+        <div class="sat-val-sub" id="sv-gwet-sub">Root Zone Moisture</div>
+      </div>
+    </div>
+
+    <div class="sat-row">
+      <div class="sat-icon">🌧️</div>
+      <div class="sat-info">
+        <div class="sat-name">NASA GPM IMERG<span class="info-q" data-tip-key="gpm_rain" tabindex="0" role="button" aria-label="Thông tin">?</span></div>
+        <div class="sat-desc">PRECTOTCORR · Erosion Risk</div>
+      </div>
+      <div class="sat-values">
+        <div class="sat-val-main" id="sv-rain">—</div>
+        <div class="sat-val-sub" id="sv-rain-sub">Avg Rainfall/Month</div>
+      </div>
+    </div>
+
+    <div class="sat-row">
+      <div class="sat-icon">🌡️</div>
+      <div class="sat-info">
+        <div class="sat-name">ECOSTRESS / MODIS LST<span class="info-q" data-tip-key="ecostress_heat" tabindex="0" role="button" aria-label="Thông tin">?</span></div>
+        <div class="sat-desc">TS · ESI · Heat Stress</div>
+      </div>
+      <div class="sat-values">
+        <div class="sat-val-main" id="sv-ts">—</div>
+        <div class="sat-val-sub" id="sv-esi">ESI —</div>
+      </div>
+    </div>
+
+    <div class="sat-row">
+      <div class="sat-icon">🌿</div>
+      <div class="sat-info">
+        <div class="sat-name">MODIS NDVI + SoilGrids<span class="info-q" data-tip-key="modis_ndvi" tabindex="0" role="button" aria-label="Thông tin">?</span></div>
+        <div class="sat-desc">Vegetation Health · Fertility</div>
+      </div>
+      <div class="sat-values">
+        <div class="sat-val-main" id="sv-ndvi">—</div>
+        <div class="sat-val-sub" id="sv-ndvi-sub">NDVI Avg</div>
+      </div>
+    </div>
+
+    <div class="mini-chart-wrap" aria-live="polite">
+      <div class="mini-chart-title">🏔️ TERRAIN &amp; COLD RISK</div>
+      <div id="terrain-summary">No terrain data yet.</div>
+      <div id="cold-risk-summary">Cold-risk not evaluated.</div>
+      <div id="cold-risk-months"></div>
+    </div>
+
+    <div class="mini-chart-wrap">
+      <div class="mini-chart-title">🌡️ TEMPERATURE PROFILE · AVG &amp; MINIMUM (°C)</div>
+      <canvas id="chart-temp" height="90"></canvas>
+    </div>
+
+    <div class="mini-chart-wrap">
+      <div class="mini-chart-title">🌧️ RAINFALL + 💧 SOIL MOISTURE</div>
+      <canvas id="chart-rain" height="90"></canvas>
+    </div>
+
+    <div class="mini-chart-wrap">
+      <div class="mini-chart-title">🌿 NDVI VEGETATION INDEX</div>
+      <canvas id="chart-ndvi" height="70"></canvas>
+    </div>
   </div>
 
   <div class="tab-content" id="tab-arena">
     <div class="match-score-wrap">
-      <div class="match-score-label">Quantum Match Rating<span class="info-q" data-tip-key="match_pct" tabindex="0" role="button" aria-label="Thông tin">?</span></div>
-      <div class="match-score-val" id="match-score">—%</div>
+      <div class="match-score-label">
+        Quantum Match Rating<span class="info-q" data-tip-key="match_pct" tabindex="0" role="button" aria-label="Thông tin">?</span>
+      </div>
+      <div class="match-score-val" id="match-score">-%</div>
       <div class="match-score-desc" id="match-desc">Run analysis to compare strategies</div>
     </div>
 
     <div class="arena-block user-block">
       <div class="arena-block-header">
-        <div class="arena-label" style="color:var(--cyan)">Your Strategy<span class="info-q" data-tip-key="rank" tabindex="0" role="button" aria-label="Thông tin">?</span></div>
+        <div class="arena-label" style="color:var(--cyan)">
+          Your Strategy<span class="info-q" data-tip-key="rank" tabindex="0" role="button" aria-label="Thông tin">?</span>
+        </div>
         <div class="rank-chip" id="user-rank">—</div>
       </div>
       <div class="crop-tags" id="user-tags"><span style="font-size:0.7rem;color:var(--dim)">Select crops and run analysis…</span></div>
       <div id="user-hp-soil"></div>
       <div id="user-hp-water"></div>
       <div id="user-hp-profit"></div>
+      <div id="user-season-risks"></div>
     </div>
 
     <div class="arena-block quantum-block">
       <div class="arena-block-header">
-        <div class="arena-label" style="color:var(--purple)">Quantum AI Optimal<span class="info-q" data-tip-key="rank" tabindex="0" role="button" aria-label="Thông tin">?</span></div>
+        <div class="arena-label" style="color:var(--purple)">
+          Quantum AI Optimal<span class="info-q" data-tip-key="rank" tabindex="0" role="button" aria-label="Thông tin">?</span>
+        </div>
         <div class="rank-chip" id="q-rank">—</div>
       </div>
       <div class="q-method" id="q-method">Waiting for analysis…</div>
@@ -487,21 +590,53 @@
       <div id="q-hp-soil"></div>
       <div id="q-hp-water"></div>
       <div id="q-hp-profit"></div>
+      <div id="q-season-risks"></div>
     </div>
   </div>
 </aside>
 
-<div id="map-hint">Click anywhere on the map to place your farm marker</div>
+<div id="map-hint">🖱️ Click anywhere on the map to place your farm marker</div>
+
+<!-- ═══════════ WATER WARNING MODAL ═══════════ -->
+<div id="water-alert" class="water-alert-modal" role="alert" aria-live="assertive">
+  <div class="water-alert-icon">
+    <svg class="siren-svg" viewBox="0 0 54 54" width="46" height="46" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <line x1="9" y1="26" x2="2" y2="26" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="12" y1="17" x2="6" y2="12" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="17" y1="10" x2="13" y2="4" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="45" y1="26" x2="52" y2="26" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="42" y1="17" x2="48" y2="12" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="37" y1="10" x2="41" y2="4" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M18 31 C18 19 22 14 27 14 C32 14 36 19 36 31 Z" fill="#ef4444"/>
+      <path d="M21 28 C21 22 23 18 26 16.5" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity="0.65"/>
+      <path d="M15 31 H39 L41 39 H13 Z" fill="#fda4af"/>
+      <rect x="11" y="39" width="32" height="4" rx="2" fill="#be123c"/>
+    </svg>
+  </div>
+  <div class="water-alert-content">
+    <div class="water-alert-header">
+      <div class="water-alert-title"><span class="hazard-icon">⚠️</span> CẢNH BÁO VÙNG NƯỚC</div>
+      <button class="water-alert-close" onclick="closeWaterAlert()" title="Đóng" aria-label="Đóng">&times;</button>
+    </div>
+    <div class="water-alert-desc">
+      Điểm chọn nằm trên mặt nước theo bản đồ. Vui lòng chọn đất liền để phân tích trồng trọt.
+    </div>
+  </div>
+</div>
 
 <script>
+/* Inline helpers kept only for UI bootstrap.
+   Prefer moving these into js/ui-helpers.js if the file already exists. */
 function toggleAcc(btn) {
   const card = btn.closest('.acc-card');
   if (card) card.classList.toggle('open');
 }
+
 function toggleSettingsModal() {
   const modal = document.getElementById('settings-modal');
   if (modal) modal.classList.toggle('active');
 }
+
 function switchSettingsTab(tabId, btn) {
   document.querySelectorAll('.stab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.stab-btn').forEach(b => b.classList.remove('active'));
@@ -510,7 +645,6 @@ function switchSettingsTab(tabId, btn) {
   if (btn) btn.classList.add('active');
 }
 
-/* ── Đóng/Mở từng Side Panel độc lập ── */
 function togglePanel(panelId) {
   const panel = document.getElementById(panelId);
   if (!panel) return;
@@ -518,7 +652,6 @@ function togglePanel(panelId) {
   document.body.classList.toggle(panelId + '-collapsed', panel.classList.contains('collapsed'));
 }
 
-/* ── Chế độ Auto-Hide (Thu gọn tự động, di chuột vào tự mở ra) ── */
 function toggleHoverMode() {
   const isHover = document.body.classList.toggle('panels-autohide');
   const btn = document.getElementById('btn-autohide-mode');
@@ -531,7 +664,6 @@ function toggleHoverMode() {
   localStorage.setItem('farmshift_autohide', isHover ? '1' : '0');
 }
 
-// Khôi phục trạng thái Auto-Hide khi tải trang
 document.addEventListener('DOMContentLoaded', () => {
   if (localStorage.getItem('farmshift_autohide') === '1') {
     toggleHoverMode();
@@ -540,20 +672,21 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <!-- Scripts -->
-<script src="js/state.js"></script>
-<script src="js/map.js"></script>
-<script src="js/heatmap-core.js"></script>
-<script src="js/heatmap.js"></script>
-<script src="js/trade-core.js"></script>
-<script src="js/trade.js"></script>
-<script src="js/geocoder.js"></script>
-<script src="js/tooltips.js"></script>
-<script src="js/ui-helpers.js"></script>
-<script src="js/charts.js"></script>
-<script src="js/render.js"></script>
-<script src="js/settings.js"></script>
-<script src="js/analysis.js"></script>
-<!-- <script src="js/agri-zones.js"></script> -->
-<script src="js/crop-bubbles.js"></script>
+<script src="js/state.js?v=terrain2"></script>
+<script src="js/location.js?v=terrain2"></script>
+<script src="js/map.js?v=terrain2"></script>
+<script src="js/heatmap-core.js?v=terrain2"></script>
+<script src="js/heatmap.js?v=terrain2"></script>
+<script src="js/trade-core.js?v=terrain2"></script>
+<script src="js/trade.js?v=terrain2"></script>
+<script src="js/geocoder.js?v=terrain2"></script>
+<script src="js/tooltips.js?v=terrain2"></script>
+<script src="js/ui-helpers.js?v=terrain2"></script>
+<script src="js/charts.js?v=terrain2"></script>
+<script src="js/render.js?v=terrain2"></script>
+<script src="js/crop-recommendations.js?v=seasonal1"></script>
+<script src="js/settings.js?v=terrain2"></script>
+<script src="js/analysis.js?v=terrain2"></script>
+<script src="js/crop-bubbles.js?v=terrain2"></script>
 </body>
 </html>

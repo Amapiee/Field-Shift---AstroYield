@@ -4,9 +4,9 @@
 
 const PARAM_INFO = {
   match_pct: {
-    title: "⚖️ Quantum Match Rating",
-    desc: "Cho biết chiến lược luân canh bạn chọn \"ăn khớp\" đến đâu với gợi ý tối ưu của AI lượng tử. 100% nghĩa là bạn đã chọn đúng tổ hợp cây trồng tốt nhất; càng thấp, nghĩa là có một lựa chọn khác sẽ cân bằng Đất – Nước – Lợi nhuận tốt hơn so với lựa chọn hiện tại của bạn.",
-    source: "Chỉ số tổng hợp, tính toán nội bộ từ các thông số vệ tinh và kinh tế bên dưới (không phải số đo trực tiếp từ một vệ tinh nào)."
+    title: "⚖️ Điểm tương đồng phương án",
+    desc: "So sánh điểm phương án của bạn với Classical Exact: 100 − độ chênh lệch điểm, hiển thị dạng %. Hai tổ hợp khác nhau vẫn có thể cùng điểm. Đây là chỉ số tương đối, không phải xác suất thành công. -% nghĩa là chưa chấm được; 1% là mốc hiển thị tương thích rất thấp, không khẳng định cây sống được.",
+    source: "Mục tiêu planning_rotation_v5 dùng chung cho chấm điểm, Classical Exact và QAOA mô phỏng."
   },
   rank: {
     title: "🏅 Rank (S / A / B / C)",
@@ -30,7 +30,7 @@ const PARAM_INFO = {
   },
   quantum_method: {
     title: "⚛️ QAOA Method",
-    desc: "Tên của \"bộ não\" đã tính ra tổ hợp 3 vụ tối ưu — một thuật toán mô phỏng máy tính lượng tử (QAOA) để tìm phương án cân bằng tốt nhất giữa Đất, Nước và Lợi nhuận, đồng thời tránh gợi ý trồng lặp lại một loại cây quá nhiều vụ liên tiếp (dễ làm bạc màu đất). Nếu việc mô phỏng gặp sự cố, hệ thống sẽ tự chuyển sang một thuật toán dự phòng đơn giản hơn để vẫn đưa ra kết quả.",
+    desc: "QAOA mô phỏng tìm phương án luân canh theo điểm Đất, Nước, Lợi ích, chuyển tiếp giữa vụ và ràng buộc khí hậu/rét. Classical Exact duyệt 216 tổ hợp làm mốc đối chiếu. Khi tắt mô phỏng hoặc gặp lỗi, kết quả được ghi rõ là Classical fallback. Không chạy trên phần cứng lượng tử.",
     source: "Kết quả tính toán nội bộ, không đến từ một bộ dữ liệu vệ tinh hay bên thứ ba nào — chỉ dựa trên 3 chỉ số Đất/Nước/Lợi nhuận ở trên."
   },
 
@@ -109,8 +109,8 @@ const PARAM_INFO = {
   },
   badge_source: {
     title: "📡 Nguồn dữ liệu đang dùng",
-    desc: "Cho biết số liệu bạn đang xem lấy trực tiếp từ vệ tinh NASA theo thời gian thực, hay app đang tạm dùng số liệu ước tính nội bộ (vì mất kết nối internet hoặc máy chủ NASA đang bận). Số liệu ước tính vẫn được tính toán hợp lý dựa trên vị trí của bạn, chỉ không \"tươi mới\" bằng dữ liệu trực tiếp.",
-    source: "Trạng thái kết nối tới các API vệ tinh NASA tại thời điểm bạn chạy phân tích."
+    desc: "Hiển thị nguồn, thời kỳ và trạng thái khí hậu: climatology, lịch sử tái phân tích, dữ liệu nội suy hoặc không khả dụng. Các proxy được ghi riêng. Khí hậu trung bình nhiều năm không phải thời tiết thời gian thực hoặc dự báo; khi thiếu dữ liệu thật, ứng dụng không tự tạo khuyến nghị từ dữ liệu demo.",
+    source: "Metadata của phản hồi API và chi tiết nguồn dữ liệu trong Satellite Intel."
   }
 };
 
