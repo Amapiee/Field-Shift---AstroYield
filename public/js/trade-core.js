@@ -3,6 +3,9 @@
   "use strict";
 
   const RAD = Math.PI / 180, DEG = 180 / Math.PI;
+  const COUNTRY_CODES = {VNM:"VN",CHN:"CN",THA:"TH",KHM:"KH",LAO:"LA",MMR:"MM",MYS:"MY",SGP:"SG",IND:"IN",
+    USA:"US",CAN:"CA",MEX:"MX",BRA:"BR",ARG:"AR",DEU:"DE",FRA:"FR",NLD:"NL",POL:"PL",UKR:"UA",RUS:"RU"};
+  const inlandCode = iso => COUNTRY_CODES[iso] || iso;
 
   // Tọa độ đầu mối NỘI LỤC (Inland Hubs) cho đường bộ thay vì lấy Cảng biển (Port)
   const INLAND_HUBS = {
@@ -148,8 +151,8 @@
 
   // Lấy tọa độ đầu cuối của đường bộ (ưu tiên hub nội địa thay vì cảng biển)
   function getLandEndpoints(fromIso, toIso, hubs) {
-    const A = INLAND_HUBS[fromIso] || hubs[fromIso]?.land || hubs[fromIso]?.air || hubs[fromIso]?.port;
-    const B = INLAND_HUBS[toIso]   || hubs[toIso]?.land   || hubs[toIso]?.air   || hubs[toIso]?.port;
+    const A = hubs[fromIso]?.land || INLAND_HUBS[inlandCode(fromIso)] || hubs[fromIso]?.air || hubs[fromIso]?.port;
+    const B = hubs[toIso]?.land || INLAND_HUBS[inlandCode(toIso)] || hubs[toIso]?.air || hubs[toIso]?.port;
     return { A, B };
   }
 
@@ -171,15 +174,13 @@
       if (flow.modes.land && Array.isArray(flow.modes.land.path) && flow.modes.land.path.length >= 2) {
         return centerPath(unwrapLon(flow.modes.land.path));
       }
-      const pairKey = `${flow.from}-${flow.to}`;
-      const revKey  = `${flow.to}-${flow.from}`;
-      if (LAND_WAYPOINTS[pairKey]) {
-        return centerPath(unwrapLon(interpolateLandChain(LAND_WAYPOINTS[pairKey])));
-      }
-      if (LAND_WAYPOINTS[revKey]) {
-        return centerPath(unwrapLon(interpolateLandChain([...LAND_WAYPOINTS[revKey]].reverse())));
-      }
+      const pairKey = `${inlandCode(flow.from)}-${inlandCode(flow.to)}`;
+      const revKey  = `${inlandCode(flow.to)}-${inlandCode(flow.from)}`;
       const { A, B } = getLandEndpoints(flow.from, flow.to, hubs);
+      const corridor = LAND_WAYPOINTS[pairKey] || (LAND_WAYPOINTS[revKey] ? [...LAND_WAYPOINTS[revKey]].reverse() : null);
+      if (corridor) {
+        return centerPath(unwrapLon(interpolateLandChain([[A.lat,A.lon], ...corridor, [B.lat,B.lon]])));
+      }
       return centerPath(interpolateLandChain([[A.lat, A.lon], [B.lat, B.lon]], 24));
     }
 
@@ -195,7 +196,7 @@
       if (!e) {
         let h;
         if (kind === "air") h = hubs[iso].air;
-        else if (kind === "land") h = INLAND_HUBS[iso] || hubs[iso].air || hubs[iso].port;
+        else if (kind === "land") h = getLandEndpoints(iso, iso, hubs).A;
         else h = hubs[iso].port;
         e = { key, iso, kind, lat: h.lat, lon: h.lon, place: h.n || h.name, country: hubs[iso].name, out: 0, in: 0 };
         m.set(key, e);

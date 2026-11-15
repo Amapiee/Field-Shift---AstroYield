@@ -33,9 +33,9 @@ const I18N_DICT = {
     acc_cropsmap: "Phân bố cây trồng",
     acc_trade: "Tuyến Thương Mại Nông Sản",
     acc_alerts: "Cảnh báo Thiên tai",
-    season_1: "<span>Vụ Xuân</span> (Tháng 1–4)",
-    season_2: "<span>Vụ Hè Thu</span> (Tháng 5–8)",
-    season_3: "<span>Vụ Đông</span> (Tháng 9–12)",
+    season_1: "<span>Vụ 1</span> (Tháng 1–4)",
+    season_2: "<span>Vụ 2</span> (Tháng 5–8)",
+    season_3: "<span>Vụ 3</span> (Tháng 9–12)",
 
     // Crops in <select>
     crops: {
@@ -111,9 +111,9 @@ const I18N_DICT = {
     acc_cropsmap: "Global Crop Distribution",
     acc_trade: "Global Agri-Trade Routes",
     acc_alerts: "Weather & Disaster Alerts",
-    season_1: "<span>Spring Crop</span> (Jan–Apr)",
-    season_2: "<span>Summer-Autumn</span> (May–Aug)",
-    season_3: "<span>Winter Crop</span> (Sep–Dec)",
+    season_1: "<span>Season 1</span> (Jan–Apr)",
+    season_2: "<span>Season 2</span> (May–Aug)",
+    season_3: "<span>Season 3</span> (Sep–Dec)",
 
     // Crops in <select>
     crops: {
@@ -299,7 +299,11 @@ const AppSettings = {
 
     for (const [selector, text] of Object.entries(textMap)) {
       const el = document.querySelector(selector);
-      if (el && text) el.textContent = text;
+      if (el && text) {
+        const infoIcons = Array.from(el.querySelectorAll('.info-q'));
+        el.textContent = text;
+        infoIcons.forEach(icon => el.appendChild(icon));
+      }
     }
 
     // Dịch các nhãn trong Heatmap Controls
@@ -321,10 +325,10 @@ const AppSettings = {
     if (rightTabs[0]) rightTabs[0].textContent = d.tab_telemetry;
     if (rightTabs[1]) rightTabs[1].textContent = d.tab_arena;
 
-    const miniCharts = document.querySelectorAll('#tab-telemetry .mini-chart-title');
-    if (miniCharts[0]) miniCharts[0].textContent = d.chart_temp_title;
-    if (miniCharts[1]) miniCharts[1].textContent = d.chart_rain_title;
-    if (miniCharts[2]) miniCharts[2].textContent = d.chart_ndvi_title;
+    for (const [id, title] of [['chart-temp', d.chart_temp_title], ['chart-rain', d.chart_rain_title], ['chart-ndvi', d.chart_ndvi_title]]) {
+      const heading = document.getElementById(id)?.parentElement?.querySelector('.mini-chart-title');
+      if (heading) heading.textContent = title;
+    }
 
     this.save();
   },

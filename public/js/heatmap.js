@@ -131,13 +131,18 @@ const Heat = {
         if (err) throw new Error(err);
 
         let cropGrid = null;
-        try {
+        if (HEAT_LAYER_DEFS.some(def => def.id.startsWith("pop_"))) try {
           const cropRes = await fetch(CROP_GRID_URL);
           if (cropRes && cropRes.ok) {
             const text = await cropRes.text();
-            if (text) cropGrid = JSON.parse(text);
+            if (text) {
+              cropGrid = JSON.parse(text);
+              const cropError = HeatCore.validateGrid(cropGrid);
+              if (cropError) throw new Error(cropError);
+            }
           }
         } catch (e) {
+          cropGrid = null;
           console.warn("Bỏ qua file cây trồng do lỗi:", e.message);
         }
 

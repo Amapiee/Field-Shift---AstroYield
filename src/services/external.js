@@ -33,10 +33,10 @@ const CROP_MAP = {
 };
 
 async function fetchExternalData(lat, lon, nasaData, cropKeys) {
-  const cacheKey = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+  const cacheKey = `${lat.toFixed(4)},${lon.toFixed(4)}:${[...cropKeys].sort().join(",")}`;
   if (cache.has(cacheKey)) {
     const c = cache.get(cacheKey);
-    if (Date.now() - c.t < CACHE_TTL_MS) return c.v;
+    if (Date.now() - c.t < (c.v.ok ? CACHE_TTL_MS : 30000)) return c.v;
   }
 
   // Chuẩn bị tham số đầu vào từ dữ liệu NASA
@@ -50,8 +50,10 @@ async function fetchExternalData(lat, lon, nasaData, cropKeys) {
 
   try {
     // Gọi song song cả 2 API với timeout 2.5s
-    const fetchCarto = (crop) => fetch(`https://api.cartodrone.com/api/v1/crop-eco-suitability?crop=${CROP_MAP[crop] || crop}&temperature_c=${tempAvg.toFixed(1)}&rainfall_mm=${rainTotal.toFixed(0)}&ph=${ph}`, { signal: AbortSignal.timeout(2500) }).then(r => r.json()).catch(() => null);
-    const fetchEvery = (crop) => fetch(`https://crops.every.farm/api/v1/recommend?zone=${zone}&crop=${CROP_MAP[crop] || crop}&rainfall=${rainTotal.toFixed(0)}&soil_ph=${ph}`, { signal: AbortSignal.timeout(2500) }).then(r => r.json()).catch(() => null);
+    const parseResponse = response => response.ok ? response.json() : null;
+    const fetchCarto = (crop) => fetch(`https://api.cartodrone.com/api/v1/crop-eco-suitability?crop=${CROP_MAP[crop] || crop}&temperature_c=${tempAvg.toFixed(1)}&rainfall_mm=${rainTotal.toFixed(0)}&ph=${ph}`, { signal: AbortSignal.timeout(2500) }).then(parseResponse).catch(() => null);
+    const fetchEvery = (crop) => fetch(`https://crops.every.farm/api/v1/recommend?zone=${zone}&crop=${CROP_MAP[crop] || crop}&rainfall=${rainTotal.toFixed(0)}&soil_ph=${ph}`, { signal: AbortSignal.timeout(2500) }).then(parseResponse).catch(() => null);
+    const validScore = value => Number.isFinite(value) && value >= 0 && value <= 100;
 
     const promises = [];
     for (const crop of cropKeys) {
@@ -69,11 +71,11 @@ async function fetchExternalData(lat, lon, nasaData, cropKeys) {
           let score = 50;
           let src = "fallback";
 
-          if (carto && carto.suitability !== undefined) {
+          if (carto && validScore(carto.suitability)) {
             suitability = carto.suitability / 100; // Giả sử API trả về 0-100
             score = carto.suitability;
             src = "cartodrone";
-          } else if (every && every.score !== undefined) {
+          } else if (every && validScore(every.score)) {
             suitability = every.score / 100;
             score = every.score;
             src = "everyfarm";
@@ -103,6 +105,7 @@ async function fetchExternalData(lat, lon, nasaData, cropKeys) {
     cropKeys.forEach(c => results.data[c] = { suitability: 0.5, score: 50, source: "fallback" });
   }
 
+  if(cache.size>=64)cache.delete(cache.keys().next().value);
   cache.set(cacheKey, { t: Date.now(), v: results });
   return results;
 }

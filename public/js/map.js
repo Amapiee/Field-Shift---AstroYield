@@ -30,7 +30,7 @@ const googleHybrid = L.tileLayer(
 );
 
 function switchMapLayer(mode) {
-  document.querySelectorAll(".layer-btn").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".layer-btn").forEach(button => button.classList.remove("active"));
   if (mode === "esri") {
     document.getElementById("btn-layer-esri").classList.add("active");
     if (map.hasLayer(googleHybrid)) map.removeLayer(googleHybrid);
@@ -61,37 +61,58 @@ const farmIcon = L.divIcon({
 
 function isValidLatLon(lat, lon) {
   return Number.isFinite(lat) && Number.isFinite(lon) &&
-         lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+    lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
 }
 
 function placeMarker(lat, lon, flyTo = false, zoom = null) {
   if (!isValidLatLon(lat, lon)) {
-    console.warn("placeMarker: toạ độ không hợp lệ", lat, lon);
+    console.warn("placeMarker: tọa độ không hợp lệ", lat, lon);
     return false;
   }
+
   if (farmMarker) map.removeLayer(farmMarker);
   farmMarker = L.marker([lat, lon], { icon: farmIcon }).addTo(map);
   farmMarker.bindPopup(
     `<div style="font-family:'JetBrains Mono',monospace;font-size:0.75rem;
       color:#10b981;background:#060d16;padding:6px 10px;border-radius:6px;border:1px solid #10b98144">
-      📍 ${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E
+      📍 ${Math.abs(lat).toFixed(4)}°${lat < 0 ? "S" : "N"}, ${Math.abs(lon).toFixed(4)}°${lon < 0 ? "W" : "E"}
     </div>`,
     { closeButton: false, offset: [0, -12] }
   );
   document.getElementById("inp-lat").value = lat.toFixed(4);
   document.getElementById("inp-lon").value = lon.toFixed(4);
-  farmLat = lat; farmLon = lon;
+  farmLat = lat;
+  farmLon = lon;
+  if (typeof CropRecommendations !== "undefined") CropRecommendations.select(lat,lon);
   if (flyTo) map.flyTo([lat, lon], zoom || Math.max(map.getZoom(), 11), { duration: 1.4 });
   document.getElementById("map-hint").style.opacity = "0";
   return true;
 }
 
-// Click map: đặt marker NGAY + check water ASYNC (không chặn UI)
-map.on("click", e => {
-  const { lat, lng: lon } = e.latlng;
-  if (!isValidLatLon(lat, lon)) return;
-  placeMarker(lat, lon);
-  if (typeof warnIfWaterAsync === "function") warnIfWaterAsync(lat, lon);
+map.on("click", event => {
+  const { lat, lng: lon } = event.latlng;
+  if (!isValidLatLon(lat, lon) || !placeMarker(lat, lon)) return;
+  if (typeof closeWaterAlert === "function") closeWaterAlert();
+  if (typeof checkSelectedLocation === "function") {
+    checkSelectedLocation(farmLat, farmLon);
+  }
 });
 
 placeMarker(farmLat, farmLon);
+
+for (const id of ["inp-lat", "inp-lon"]) {
+  const input = document.getElementById(id);
+  if (!input) continue;
+  input.addEventListener("change", () => {
+    const latText = document.getElementById("inp-lat").value.trim();
+    const lonText = document.getElementById("inp-lon").value.trim();
+    if (!latText || !lonText) return;
+
+    const lat = Number(latText);
+    const lon = Number(lonText);
+    if (!isValidLatLon(lat, lon) || !placeMarker(lat, lon)) return;
+    if (typeof checkSelectedLocation === "function") {
+      checkSelectedLocation(farmLat, farmLon);
+    }
+  });
+}

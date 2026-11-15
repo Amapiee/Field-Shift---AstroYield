@@ -49,14 +49,46 @@ const MODE_META = {
 
 // Bộ nhớ đệm (Cache) cho đường bộ thực tế lấy từ OSRM
 const groundRouteCache = new Map();
+const groundRoutePending = new Map();
+const groundRouteQueue = [];
+let groundRouteActive = 0;
+function pumpGroundRoutes() {
+  while (groundRouteActive < 4 && groundRouteQueue.length) {
+    const job=groundRouteQueue.shift(); groundRouteActive++;
+    job().finally(()=>{groundRouteActive--;pumpGroundRoutes();});
+  }
+}
 
 /**
  * Lấy hình học tuyến đường bộ thực tế trên mặt đất (OSRM Driving API)
  * Đảm bảo tuyến đường luôn bám theo quốc lộ trên đất liền, không bao giờ cắt qua biển.
  */
-async function fetchGroundRoute(lat1, lon1, lat2, lon2) {
+async function fetchGroundRoute(lat1, lon1, lat2, lon2, isCurrent = () => true) {
   const key = `${lat1.toFixed(3)},${lon1.toFixed(3)}->${lat2.toFixed(3)},${lon2.toFixed(3)}`;
-  if (groundRouteCache.has(key)) return groundRouteCache.get(key);
+  const cached=groundRouteCache.get(key);
+  if(cached && cached.expires>Date.now())return cached.value;
+  if(groundRoutePending.has(key)) {
+    const entry=groundRoutePending.get(key);entry.consumers.push(isCurrent);return entry.promise;
+  }
+  const consumers=[isCurrent];
+  const task=new Promise(resolve=>{
+    groundRouteQueue.push(async()=>{
+      let result=null;
+      const needed=consumers.some(current=>current());
+      try { if(needed)result=await requestGroundRoute(lat1,lon1,lat2,lon2); }
+      finally {
+        if(needed) {
+          if(groundRouteCache.size>=128)groundRouteCache.delete(groundRouteCache.keys().next().value);
+          groundRouteCache.set(key,{value:result,expires:Date.now()+(result?3600000:30000)});
+        }
+        groundRoutePending.delete(key);resolve(result);
+      }
+    });
+  });
+  groundRoutePending.set(key,{promise:task,consumers});pumpGroundRoutes();return task;
+}
+
+async function requestGroundRoute(lat1,lon1,lat2,lon2) {
 
   try {
     const url = `https://router.project-osrm.org/route/v1/driving/${lon1},${lat1};${lon2},${lat2}?overview=simplified&geometries=geojson`;
@@ -68,7 +100,6 @@ async function fetchGroundRoute(lat1, lon1, lat2, lon2) {
       const coords = data.routes[0].geometry.coordinates.map(([lon, lat]) => [lat, lon]);
       const distKm = Math.round(data.routes[0].distance / 1000);
       const result = { coords, distKm };
-      groundRouteCache.set(key, result);
       return result;
     }
   } catch (err) {
@@ -88,6 +119,13 @@ const GlobalTradeFlows = {
   osmLayer: null,
   osmCache: new Map(),
   osmTimer: null,
+  refreshTimer:null,
+  drawFrame:null,
+  drawVersion:0,
+  geometryCache:new WeakMap(),
+  renderer:null,
+  markerRenderer:null,
+  animated:false,
 
   el(id) { return document.getElementById(id); },
 
@@ -144,6 +182,7 @@ const GlobalTradeFlows = {
       topN: Number(this.el("trade-topn")?.value || 12),
       showHubs: Boolean(this.el("trade-hubs")?.checked),
       showMarkets: Boolean(this.el("trade-markets")?.checked),
+      animated: Boolean(this.el("trade-animation")?.checked),
     };
   },
 
@@ -181,29 +220,49 @@ const GlobalTradeFlows = {
 
   disable() {
     this.on = false;
+    this.drawVersion++;
+    clearTimeout(this.refreshTimer);clearTimeout(this.osmTimer);
+    if(this.drawFrame)cancelAnimationFrame(this.drawFrame);
+    this.drawFrame=null;
     if (this.routeLayer) { this.routeLayer.clearLayers(); map.removeLayer(this.routeLayer); this.routeLayer = null; }
     if (this.hubLayer)   { this.hubLayer.clearLayers();   map.removeLayer(this.hubLayer);   this.hubLayer = null; }
     if (this.osmLayer)   { this.osmLayer.clearLayers();   map.removeLayer(this.osmLayer);   this.osmLayer = null; }
+    for(const renderer of [this.renderer,this.markerRenderer])if(renderer && map.hasLayer(renderer))map.removeLayer(renderer);
+    this.renderer=null;this.markerRenderer=null;
     this.el("trade-controls")?.classList.remove("show");
     this.setStatus("");
     this.setMarketStatus("");
   },
 
+  scheduleRefresh() {
+    clearTimeout(this.refreshTimer);
+    this.refreshTimer=setTimeout(()=>this.refresh(),120);
+  },
+
   refresh() {
     if (!this.on || !this.flowsData || !this.hubsData || !window.TradeCore) return;
     const sel = this.getSelection();
-    const topLbl = this.el("trade-topn-val");
-    if (topLbl) topLbl.textContent = `Top ${sel.topN}`;
-
+    const version=++this.drawVersion;
+    if(this.drawFrame)cancelAnimationFrame(this.drawFrame);
     this.routeLayer.clearLayers();
     this.hubLayer.clearLayers();
+    if(!this.renderer || this.animated!==sel.animated) {
+      if(this.renderer && map.hasLayer(this.renderer))map.removeLayer(this.renderer);
+      this.renderer=sel.animated?L.svg({padding:.25}):L.canvas({padding:.25,tolerance:5});
+      this.animated=sel.animated;
+    }
+    if(!this.markerRenderer)this.markerRenderer=L.canvas({padding:.25,tolerance:5});
+    const topLbl = this.el("trade-topn-val");
+    if (topLbl) topLbl.textContent = `Top ${sel.topN}`;
 
     const items = TradeCore.selectFlows(this.flowsData, this.hubsData, sel);
 
     // 1. Vẽ từng tuyến với kiểu dáng tách biệt rõ rệt theo phương thức (Sea / Air / Land)
-    for (const it of items) {
-      const pts = TradeCore.pathFor(it, this.hubsData);
-      if (!pts || pts.length < 2) continue;
+    const drawItem = it => {
+      let paths=this.geometryCache.get(it.flow);
+      if(!paths){paths={};this.geometryCache.set(it.flow,paths);}
+      const pts = paths[it.mode] || (paths[it.mode]=TradeCore.pathFor(it, this.hubsData));
+      if (!pts || pts.length < 2) return;
 
       const weight = TradeCore.widthFor(it.kt, it.max);
       const mMeta = MODE_META[it.mode] || MODE_META.sea;
@@ -223,6 +282,7 @@ const GlobalTradeFlows = {
       if (it.mode === "land") {
         // ĐƯỜNG BỘ: Vẽ lớp vỏ đường cao tốc bên dưới + vạch kẻ đường vàng cam bên trên
         const casingLine = L.polyline(pts, {
+          renderer:this.renderer, interactive:false, smoothFactor:1.5,
           color: mMeta.casingColor,
           weight: weight + 3.5,
           opacity: 0.85,
@@ -231,6 +291,7 @@ const GlobalTradeFlows = {
         }).addTo(this.routeLayer);
 
         const mainLine = L.polyline(pts, {
+          renderer:this.renderer, smoothFactor:1.5,
           color: mMeta.color,
           weight: weight,
           opacity: mMeta.opacity,
@@ -243,8 +304,8 @@ const GlobalTradeFlows = {
         // Tự động khớp vào quốc lộ mặt đất thực tế qua OSRM (nếu chưa có geometry chi tiết)
         const { A, B } = TradeCore.getLandEndpoints(it.flow.from, it.flow.to, this.hubsData);
         if (A && B) {
-          fetchGroundRoute(A.lat, A.lon, B.lat, B.lon).then(route => {
-            if (!route || !this.on || !this.routeLayer) return;
+          fetchGroundRoute(A.lat, A.lon, B.lat, B.lon, ()=>this.on && version===this.drawVersion).then(route => {
+            if (!route || !this.on || !this.routeLayer || version!==this.drawVersion) return;
             const centered = TradeCore.centerPath(TradeCore.unwrapLon(route.coords));
             casingLine.setLatLngs(centered);
             mainLine.setLatLngs(centered);
@@ -254,6 +315,7 @@ const GlobalTradeFlows = {
       } else {
         // ĐƯỜNG BIỂN & HÀNG KHÔNG: Có lớp hào quang (Glow) mờ bên dưới + đường chính bên trên
         L.polyline(pts, {
+          renderer:this.renderer, smoothFactor:1.5,
           color: mMeta.color,
           weight: weight + 4,
           opacity: 0.22,
@@ -261,6 +323,7 @@ const GlobalTradeFlows = {
         }).addTo(this.routeLayer);
 
         const mainLine = L.polyline(pts, {
+          renderer:this.renderer, smoothFactor:1.5,
           color: mMeta.color,
           weight: weight,
           opacity: mMeta.opacity,
@@ -270,7 +333,16 @@ const GlobalTradeFlows = {
 
         mainLine.bindTooltip(tooltipHtml(it.km), { sticky: true });
       }
-    }
+    };
+    let cursor=0;
+    const drawBatch=()=>{
+      this.drawFrame=null;
+      if(!this.on || version!==this.drawVersion)return;
+      const end=Math.min(cursor+18,items.length);
+      while(cursor<end)drawItem(items[cursor++]);
+      if(cursor<items.length)this.drawFrame=requestAnimationFrame(drawBatch);
+    };
+    this.drawFrame=requestAnimationFrame(drawBatch);
 
     // 2. Vẽ các Cảng biển, Sân bay & Trạm cửa khẩu bộ (Hubs)
     if (sel.showHubs) {
@@ -282,6 +354,7 @@ const GlobalTradeFlows = {
         const iconLabel = isAir ? "✈️ Air Hub" : (isLand ? "🚚 Inland Hub" : "⚓ Sea Port");
 
         const marker = L.circleMarker([h.lat, h.lon], {
+          renderer:this.markerRenderer,
           radius: isAir ? 5 : (isLand ? 5.5 : 6),
           color: "#ffffff",
           weight: 1.8,
@@ -368,6 +441,7 @@ const GlobalTradeFlows = {
     this.setMarketStatus(`🏪 Showing ${list.length} agricultural markets in current view.`);
     for (const m of list) {
       const mkr = L.circleMarker([m.lat, m.lon], {
+        renderer:this.markerRenderer,
         radius: 4,
         color: "#10b981",
         weight: 1,
@@ -385,11 +459,11 @@ const GlobalTradeFlows = {
     sel.value = "all";
 
     this.el("trade-toggle")?.addEventListener("change", e => (e.target.checked ? this.enable() : this.disable()));
-    sel.addEventListener("change", () => this.refresh());
-    ["trade-sea", "trade-air", "trade-land", "trade-hubs", "trade-markets"].forEach(id => {
-      this.el(id)?.addEventListener("change", () => this.refresh());
+    sel.addEventListener("change", () => this.scheduleRefresh());
+    ["trade-sea", "trade-air", "trade-land", "trade-hubs", "trade-markets", "trade-animation"].forEach(id => {
+      this.el(id)?.addEventListener("change", () => this.scheduleRefresh());
     });
-    this.el("trade-topn")?.addEventListener("input", () => this.refresh());
+    this.el("trade-topn")?.addEventListener("input", () => this.scheduleRefresh());
 
     map.on("moveend", () => {
       if (this.on && this.el("trade-markets")?.checked) {
